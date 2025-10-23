@@ -47,15 +47,15 @@ export default function Login() {
       }
     } catch (err: any) {
       setError(err.message);
-      console.error("Authentication error details:", err);
+      console.error("Detalles de erros de autenticación:", err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-gray-800 p-8 rounded-lg shadow-xl">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-gray-100 py-20 px-6">
+      <div className="w-full sm:max-w-xl lg:max-w-2xl space-y-8 bg-gray-800 p-10 rounded-2xl shadow-2xl">
         <div>
           {/* Logo futuro */}
           {/* <img className="mx-auto h-12 w-auto" src="/gaeliza-logo.svg" alt="Gaeliza Logo" /> */}
