@@ -7,20 +7,14 @@ from .api.v1.endpoints import matches, teams, players, auth
 
 app = FastAPI(title="Gaeliza API", version="0.1.0")
 
-# CORS - Permitir peticiones desde el frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # URL del frontend en desarrollo
+    allow_origins=["http://localhost:5173"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Incluir routers
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
-app.include_router(matches.router, prefix="/api/v1", tags=["matches"])
-app.include_router(teams.router, prefix="/api/v1", tags=["teams"])
-app.include_router(players.router, prefix="/api/v1", tags=["players"])
 
 @app.get("/")
 def read_root():
@@ -30,7 +24,6 @@ def read_root():
 async def health_check():
     return {"status": "ok"}
 
-# Endpoint de prueba de base de datos
 @app.get("/db-test")
 async def test_db_connection(db: AsyncSession = Depends(get_db)):
     try:
