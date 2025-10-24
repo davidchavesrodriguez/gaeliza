@@ -147,7 +147,7 @@ export default function Login() {
             </button>
           </div>
 
-              {/* Login/rexistro */}
+          {/* Login/rexistro */}
           <div className="text-center">
             <button
               type="button"
