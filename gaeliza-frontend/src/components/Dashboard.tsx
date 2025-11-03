@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import type { Database } from '../types/supabase';
-import type { User } from '@supabase/supabase-js';
 import MatchForm from './MatchForm';
 import { Link } from 'react-router-dom';
 
