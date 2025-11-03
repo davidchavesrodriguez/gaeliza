@@ -264,6 +264,7 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          gender: Database["public"]["Enums"]["team_gender"] | null
           id: number
           name: string
           shield_url: string | null
@@ -272,6 +273,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          gender?: Database["public"]["Enums"]["team_gender"] | null
           id?: number
           name: string
           shield_url?: string | null
@@ -280,6 +282,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          gender?: Database["public"]["Enums"]["team_gender"] | null
           id?: number
           name?: string
           shield_url?: string | null
@@ -295,7 +298,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      team_gender: "masculino" | "feminino" | "mixto"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -422,6 +425,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      team_gender: ["masculino", "feminino", "mixto"],
+    },
   },
 } as const
