@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import type { Database } from '../types/supabase';
-import type { Session, User } from '@supabase/supabase-js'; 
+import type { User } from '@supabase/supabase-js';
 import MatchForm from './MatchForm';
-import { Link } from 'react-router-dom'; 
+import { Link } from 'react-router-dom';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 type Team = Database['public']['Tables']['teams']['Row'];
@@ -12,11 +12,8 @@ type MatchWithTeams = Match & {
   away_team: Pick<Team, 'id' | 'name' | 'shield_url'> | null;
 };
 
-interface DashboardProps {
-  user: User;
-}
 
-export default function Dashboard({ user }: DashboardProps) {
+export default function Dashboard() {
   const [loadingData, setLoadingData] = useState(true);
   const [matches, setMatches] = useState<MatchWithTeams[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -33,13 +30,13 @@ export default function Dashboard({ user }: DashboardProps) {
       const { data, error, status } = await supabase
         .from('matches')
         .select(`
-          *,
-          home_team: home_team_id ( id, name, shield_url ),
-          away_team: away_team_id ( id, name, shield_url )
-        `)
-        .order('match_date', { ascending: false }); 
+                  *,
+                  home_team: teams!matches_home_team_id_fkey ( id, name, shield_url ),
+                  away_team: teams!matches_away_team_id_fkey ( id, name, shield_url )
+  `)
+        .order('match_date', { ascending: false });
 
-      if (error && status !== 406) { 
+      if (error && status !== 406) {
         console.error("Supabase fetch error details:", error);
         throw new Error(`Error ${error.code}: ${error.message}. ${error.hint ? `Hint: ${error.hint}` : ''}`);
       }
@@ -60,8 +57,8 @@ export default function Dashboard({ user }: DashboardProps) {
   const handleNewMatchClick = () => setShowMatchForm(true);
   const handleFormCancel = () => setShowMatchForm(false);
   const handleMatchCreated = () => {
-    setShowMatchForm(false); 
-    loadMatches(); 
+    setShowMatchForm(false);
+    loadMatches();
   };
 
   return (
@@ -71,7 +68,7 @@ export default function Dashboard({ user }: DashboardProps) {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <h2 className="text-xl sm:text-2xl font-bold text-white">Últimos Partidos</h2>
             <button
-              onClick={handleNewMatchClick} 
+              onClick={handleNewMatchClick}
               className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base whitespace-nowrap"
             >
               + Rexistrar novo partido
@@ -95,8 +92,8 @@ export default function Dashboard({ user }: DashboardProps) {
           {!loadingData && !fetchError && matches.length > 0 && (
             <div className="space-y-4">
               {matches.map((match) => (
-                <Link 
-                  to={`/match/${match.id}`} 
+                <Link
+                  to={`/match/${match.id}`}
                   key={match.id}
                   className="block border border-gray-700 rounded-lg p-4 hover:shadow-lg hover:bg-gray-700/[0.5] transition-all duration-200 ease-in-out group"
                 >
@@ -107,28 +104,28 @@ export default function Dashboard({ user }: DashboardProps) {
                           <img
                             src={match.home_team?.shield_url || `https://placehold.co/24x24/374151/FFF?text=${match.home_team?.name?.charAt(0) ?? 'L'}`}
                             alt={match.home_team?.name ?? 'Local'}
-                            className="w-6 h-6 rounded-full object-cover mr-2 flex-shrink-0 bg-gray-600" 
+                            className="w-6 h-6 rounded-full object-cover mr-2 flex-shrink-0 bg-gray-600"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.src = `https://placehold.co/24x24/374151/FFF?text=${match.home_team?.name?.charAt(0) ?? 'L'}`;
-                              target.onerror = null; 
-                             }}
+                              target.onerror = null;
+                            }}
                           />
                           <span>{match.home_team?.name || 'Equipo Local'}</span>
                         </span>
                         <span className="text-gray-400 text-sm mx-1">vs</span>
                         <span className="flex items-center">
-                           <img
-                             src={match.away_team?.shield_url || `https://placehold.co/24x24/374151/FFF?text=${match.away_team?.name?.charAt(0) ?? 'V'}`}
-                             alt={match.away_team?.name ?? 'Visitante'}
-                             className="w-6 h-6 rounded-full object-cover mr-2 flex-shrink-0 bg-gray-600"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = `https://placehold.co/24x24/374151/FFF?text=${match.away_team?.name?.charAt(0) ?? 'V'}`;
-                                target.onerror = null;
-                              }}
-                           />
-                           <span>{match.away_team?.name || 'Equipo Visitante'}</span>
+                          <img
+                            src={match.away_team?.shield_url || `https://placehold.co/24x24/374151/FFF?text=${match.away_team?.name?.charAt(0) ?? 'V'}`}
+                            alt={match.away_team?.name ?? 'Visitante'}
+                            className="w-6 h-6 rounded-full object-cover mr-2 flex-shrink-0 bg-gray-600"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = `https://placehold.co/24x24/374151/FFF?text=${match.away_team?.name?.charAt(0) ?? 'V'}`;
+                              target.onerror = null;
+                            }}
+                          />
+                          <span>{match.away_team?.name || 'Equipo Visitante'}</span>
                         </span>
                       </p>
                       <p className="text-sm text-gray-300 mt-1.5 flex items-center flex-wrap gap-x-3 gap-y-1">
@@ -153,7 +150,7 @@ export default function Dashboard({ user }: DashboardProps) {
       {showMatchForm && (
         <MatchForm
           onMatchCreated={handleMatchCreated}
-          onCancel={handleFormCancel}       
+          onCancel={handleFormCancel}
         />
       )}
     </>

@@ -160,7 +160,7 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
   const selectClassName = "w-full px-3 py-2 border border-gray-700 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50";
   const genderOptions = [
     { value: "masculino", label: "Masculino" },
-    { value: "femenino", label: "Femenino" },
+    { value: "feminino", label: "Feminino" },
     { value: "mixto", label: "Mixto" },
   ];
 

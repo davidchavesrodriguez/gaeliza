@@ -27,17 +27,17 @@ export default function MatchDetailPage() {
         const { data, error: fetchError } = await supabase
           .from('matches')
           .select(`
-            *,
-            home_team: home_team_id ( id, name, shield_url ),
-            away_team: away_team_id ( id, name, shield_url )
-          `)
-          .eq('id', id)
+    *,
+    home_team: teams!matches_home_team_id_fkey ( id, name, shield_url ),
+    away_team: teams!matches_away_team_id_fkey ( id, name, shield_url )
+  `)
+          .eq('id', Number(id))
           .single();
 
         if (fetchError) {
           throw fetchError;
         }
-        
+
         setMatch(data);
       } catch (err: any) {
         console.error("Error cargando o partido:", err);
@@ -75,9 +75,9 @@ export default function MatchDetailPage() {
 
   if (!match) {
     return (
-       <div className="text-center py-10 text-gray-400">
+      <div className="text-center py-10 text-gray-400">
         Partido non atopado.
-       </div>
+      </div>
     );
   }
 
@@ -93,72 +93,72 @@ export default function MatchDetailPage() {
           &larr; Volver a tódolos partidos
         </Link>
       </div>
-      
+
       <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
         <div className="p-6">
           <div className="flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
-            
+
             <div className="flex items-center gap-3 sm:gap-4 order-1 sm:order-1 mb-4 sm:mb-0">
-              <img 
-                src={homeShield} 
-                alt={homeTeamName} 
+              <img
+                src={homeShield}
+                alt={homeTeamName}
                 className="w-12 h-12 rounded-full object-cover bg-gray-600"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.src = `https://placehold.co/48x48/374151/FFF?text=${homeTeamName.charAt(0)}`;
-                  target.onerror = null; 
+                  target.onerror = null;
                 }}
               />
               <span className="text-2xl font-bold text-white">{homeTeamName}</span>
             </div>
 
             <span className="text-xl text-gray-400 order-2 sm:order-2 mx-4">vs</span>
-            
+
             <div className="flex items-center gap-3 sm:gap-4 order-3 sm:order-3 mt-4 sm:mt-0">
-              <img 
-                src={awayShield} 
-                alt={awayTeamName} 
+              <img
+                src={awayShield}
+                alt={awayTeamName}
                 className="w-12 h-12 rounded-full object-cover bg-gray-600"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.src = `https://placehold.co/48x48/374151/FFF?text=${awayTeamName.charAt(0)}`;
-                  target.onerror = null; 
+                  target.onerror = null;
                 }}
               />
               <span className="text-2xl font-bold text-white">{awayTeamName}</span>
             </div>
           </div>
-          
+
           <div className="border-t border-gray-700 mt-6 pt-6 text-center sm:text-left">
             <h3 className="text-lg font-semibold text-white mb-3">Detalles do Partido</h3>
             <div className="space-y-2 text-gray-300">
               <p>
-                <span className="font-medium text-gray-400 w-28 inline-block">Data:</span> 
+                <span className="font-medium text-gray-400 w-28 inline-block">Data:</span>
                 {new Date(match.match_date).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })}
               </p>
               {match.competition && (
                 <p>
-                  <span className="font-medium text-gray-400 w-28 inline-block">Competición:</span> 
+                  <span className="font-medium text-gray-400 w-28 inline-block">Competición:</span>
                   {match.competition}
                 </p>
               )}
               {match.location && (
                 <p>
-                  <span className="font-medium text-gray-400 w-28 inline-block">Lugar:</span> 
+                  <span className="font-medium text-gray-400 w-28 inline-block">Lugar:</span>
                   {match.location}
                 </p>
               )}
             </div>
           </div>
-          
+
           {match.video_url && (
             <div className="border-t border-gray-700 mt-6 pt-6">
               <h3 className="text-lg font-semibold text-white mb-3">Vídeo</h3>
               <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
-                <iframe 
+                <iframe
                   src={match.video_url.replace("watch?v=", "embed/")}
-                  frameBorder="0" 
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                   className="w-full h-full"
                 ></iframe>

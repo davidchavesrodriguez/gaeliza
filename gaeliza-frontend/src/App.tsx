@@ -74,7 +74,7 @@ function App() {
           <Route path="/login" element={<Login />} />
         ) : (
           <>
-            <Route path="/" element={<Dashboard user={user} />} />
+            <Route path="/" element={<Dashboard />} />
             <Route path="/match/:id" element={<MatchDetailPage />} />
           </>
         )}
