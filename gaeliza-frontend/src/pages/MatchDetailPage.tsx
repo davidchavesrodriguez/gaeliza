@@ -31,7 +31,7 @@ export default function MatchDetailPage() {
   const [loadingParticipants, setLoadingParticipants] = useState(true);
   
   const [actions, setActions] = useState<Action[]>([]);
-  const [loadingActions, setLoadingActions] = useState(true);
+  const [setLoadingActions] = useState(true);
   const [score, setScore] = useState<{ home: Score, away: Score }>({
     home: { goals: 0, points: 0, total: 0 },
     away: { goals: 0, points: 0, total: 0 }

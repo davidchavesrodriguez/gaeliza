@@ -1,5 +1,3 @@
-import React from 'react';
-
 export type ActionType = 'gol' | 'punto' | 'cartón_amarelo' | 'cartón_vermello' | 'cartón_negro' | 'falta';
 
 interface ActionPanelProps {
