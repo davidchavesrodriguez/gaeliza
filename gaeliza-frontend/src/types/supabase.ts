@@ -23,6 +23,7 @@ export type Database = {
           minute: number
           player_id: number | null
           second: number | null
+          team_id: number
           type: string
           x_position: number | null
           y_position: number | null
@@ -35,6 +36,7 @@ export type Database = {
           minute: number
           player_id?: number | null
           second?: number | null
+          team_id: number
           type: string
           x_position?: number | null
           y_position?: number | null
@@ -47,6 +49,7 @@ export type Database = {
           minute?: number
           player_id?: number | null
           second?: number | null
+          team_id?: number
           type?: string
           x_position?: number | null
           y_position?: number | null
@@ -64,6 +67,13 @@ export type Database = {
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "actions_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -176,6 +186,7 @@ export type Database = {
           last_name: string
           number: number | null
           team_id: number | null
+          type: Database["public"]["Enums"]["player_type"] | null
         }
         Insert: {
           created_at?: string | null
@@ -184,6 +195,7 @@ export type Database = {
           last_name: string
           number?: number | null
           team_id?: number | null
+          type?: Database["public"]["Enums"]["player_type"] | null
         }
         Update: {
           created_at?: string | null
@@ -192,6 +204,7 @@ export type Database = {
           last_name?: string
           number?: number | null
           team_id?: number | null
+          type?: Database["public"]["Enums"]["player_type"] | null
         }
         Relationships: [
           {
@@ -298,6 +311,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      player_type: "oficial" | "temporal"
       team_gender: "masculino" | "feminino" | "mixto"
     }
     CompositeTypes: {
@@ -426,6 +440,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      player_type: ["oficial", "temporal"],
       team_gender: ["masculino", "feminino", "mixto"],
     },
   },
