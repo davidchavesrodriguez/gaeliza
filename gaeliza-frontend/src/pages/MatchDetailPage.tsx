@@ -31,7 +31,7 @@ export default function MatchDetailPage() {
   const [loadingParticipants, setLoadingParticipants] = useState(true);
   
   const [actions, setActions] = useState<Action[]>([]);
-  const [setLoadingActions] = useState(true);
+  const [loadingActions, setLoadingActions] = useState(true);
   const [score, setScore] = useState<{ home: Score, away: Score }>({
     home: { goals: 0, points: 0, total: 0 },
     away: { goals: 0, points: 0, total: 0 }
@@ -230,14 +230,14 @@ export default function MatchDetailPage() {
 
   const existingParticipantIds = currentParticipants.map(p => p.players?.id).filter(Boolean) as number[];
 
-  const GaelicScore = ({ score }: { score: Score }) => (
+const GaelicScore = ({ score }: { score: Score }) => (
     <span className="text-2xl font-bold text-white">
       {score.goals} - {score.points}
       <span className="text-lg text-gray-400 font-normal ml-1">({score.total})</span>
     </span>
   );
 
-  return (
+  return ( 
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
         <Link to="/" className="text-sm text-blue-400 hover:text-blue-300">
@@ -253,11 +253,23 @@ export default function MatchDetailPage() {
               <img src={homeShield} alt={homeTeamName} className="w-12 h-12 rounded-full object-cover bg-gray-600"/>
               <span className="text-2xl font-bold text-white hidden sm:inline">{homeTeamName}</span>
             </div>
-            <div className="order-2 sm:order-2 mx-4 flex items-center gap-3">
-              <GaelicScore score={score.home} />
+
+            <div className="order-2 sm:order-2 mx-4 flex items-center gap-3 justify-center min-w-[200px]">
+              {loadingActions ? (
+                <span className="text-lg text-gray-400 animate-pulse">...</span>
+              ) : (
+                <GaelicScore score={score.home} />
+              )}
+              
               <span className="text-xl text-gray-400">vs</span>
-              <GaelicScore score={score.away} />
+              
+              {loadingActions ? (
+                <span className="text-lg text-gray-400 animate-pulse">...</span>
+              ) : (
+                <GaelicScore score={score.away} />
+              )}
             </div>
+
             <div className="flex items-center gap-3 sm:gap-4 order-3 sm:order-3 mt-4 sm:mt-0">
               <img src={awayShield} alt={awayTeamName} className="w-12 h-12 rounded-full object-cover bg-gray-600"/>
               <span className="text-2xl font-bold text-white hidden sm:inline">{awayTeamName}</span>
@@ -268,7 +280,43 @@ export default function MatchDetailPage() {
             <div className="w-1/5"></div>
             <span className="text-lg font-semibold text-white w-2/5 truncate">{awayTeamName}</span>
           </div>
-
+          
+          <div className="border-t border-gray-700 mt-6 pt-6 text-center sm:text-left">
+            <h3 className="text-lg font-semibold text-white mb-3">Detalles do Partido</h3>
+            <div className="space-y-2 text-gray-300">
+              <p>
+                <span className="font-medium text-gray-400 w-28 inline-block">Data:</span> 
+                {new Date(match.match_date).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })}
+              </p>
+              {match.competition && (
+                <p>
+                  <span className="font-medium text-gray-400 w-28 inline-block">Competición:</span> 
+                  {match.competition}
+                </p>
+              )}
+              {match.location && (
+                <p>
+                  <span className="font-medium text-gray-400 w-28 inline-block">Lugar:</span> 
+                  {match.location}
+                </p>
+              )}
+            </div>
+          </div>
+          
+          {match.video_url && (
+            <div className="border-t border-gray-700 mt-6 pt-6">
+              <h3 className="text-lg font-semibold text-white mb-3">Vídeo</h3>
+              <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
+                <iframe 
+                  src={match.video_url.replace("watch?v=", "embed/")}
+                  frameBorder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowFullScreen
+                  className="w-full h-full"
+                ></iframe>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
