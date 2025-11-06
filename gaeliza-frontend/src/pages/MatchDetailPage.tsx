@@ -29,7 +29,7 @@ export default function MatchDetailPage() {
   const [homeParticipants, setHomeParticipants] = useState<ParticipantWithPlayer[]>([]);
   const [awayParticipants, setAwayParticipants] = useState<ParticipantWithPlayer[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(true);
-  
+
   const [actions, setActions] = useState<Action[]>([]);
   const [loadingActions, setLoadingActions] = useState(true);
   const [score, setScore] = useState<{ home: Score, away: Score }>({
@@ -103,11 +103,11 @@ export default function MatchDetailPage() {
         setError("Erro ao cargar os datos do partido.");
       }
     };
-    
+
     if (match && !showPlayerModal && !showActionModal) {
       fetchData();
     }
-  }, [match, showPlayerModal, showActionModal]); 
+  }, [match, showPlayerModal, showActionModal]);
 
   useEffect(() => {
     if (!match) return;
@@ -155,7 +155,7 @@ export default function MatchDetailPage() {
   };
   const handleLogAction = (type: ActionType, teamId: number) => {
     setActionToLog({ type, teamId });
-    setShowActionModal(true); 
+    setShowActionModal(true);
   };
 
   if (loading) {
@@ -183,9 +183,9 @@ export default function MatchDetailPage() {
 
   if (!match || !match.home_team || !match.away_team) {
     return (
-       <div className="text-center py-10 text-gray-400">
+      <div className="text-center py-10 text-gray-400">
         Partido non atopado ou datos incompletos.
-       </div>
+      </div>
     );
   }
 
@@ -230,27 +230,53 @@ export default function MatchDetailPage() {
 
   const existingParticipantIds = currentParticipants.map(p => p.players?.id).filter(Boolean) as number[];
 
-const GaelicScore = ({ score }: { score: Score }) => (
+  const GaelicScore = ({ score }: { score: Score }) => (
     <span className="text-2xl font-bold text-white">
       {score.goals} - {score.points}
       <span className="text-lg text-gray-400 font-normal ml-1">({score.total})</span>
     </span>
   );
 
-  return ( 
+  const getYouTubeEmbedUrl = (url: string | null): string | null => {
+    if (!url) return null;
+
+    let videoId: string | null = null;
+
+    const regExp = new RegExp(
+      "(?:youtube\\.com\\/(?:[^\\/]+\\/.+\\/|(?:v|e(?:mbed)?)\\/|.*[?&]v=)|youtu\\.be\\/)([^\"&?\\/\\s]{11})",
+      "i"
+    );
+
+    const match = url.match(regExp);
+
+    if (match && match[1]) {
+      videoId = match[1];
+    }
+
+    if (videoId && videoId.length === 11) {
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+
+    return null;
+  };
+
+  const embedUrl = getYouTubeEmbedUrl(match.video_url);
+
+
+  return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
         <Link to="/" className="text-sm text-blue-400 hover:text-blue-300">
           &larr; Volver a tódolos partidos
         </Link>
       </div>
-      
+
       <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
         <div className="p-6">
 
           <div className="flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
             <div className="flex items-center gap-3 sm:gap-4 order-1 sm:order-1 mb-4 sm:mb-0">
-              <img src={homeShield} alt={homeTeamName} className="w-12 h-12 rounded-full object-cover bg-gray-600"/>
+              <img src={homeShield} alt={homeTeamName} className="w-12 h-12 rounded-full object-cover bg-gray-600" />
               <span className="text-2xl font-bold text-white hidden sm:inline">{homeTeamName}</span>
             </div>
 
@@ -260,9 +286,9 @@ const GaelicScore = ({ score }: { score: Score }) => (
               ) : (
                 <GaelicScore score={score.home} />
               )}
-              
+
               <span className="text-xl text-gray-400">vs</span>
-              
+
               {loadingActions ? (
                 <span className="text-lg text-gray-400 animate-pulse">...</span>
               ) : (
@@ -271,7 +297,7 @@ const GaelicScore = ({ score }: { score: Score }) => (
             </div>
 
             <div className="flex items-center gap-3 sm:gap-4 order-3 sm:order-3 mt-4 sm:mt-0">
-              <img src={awayShield} alt={awayTeamName} className="w-12 h-12 rounded-full object-cover bg-gray-600"/>
+              <img src={awayShield} alt={awayTeamName} className="w-12 h-12 rounded-full object-cover bg-gray-600" />
               <span className="text-2xl font-bold text-white hidden sm:inline">{awayTeamName}</span>
             </div>
           </div>
@@ -280,37 +306,37 @@ const GaelicScore = ({ score }: { score: Score }) => (
             <div className="w-1/5"></div>
             <span className="text-lg font-semibold text-white w-2/5 truncate">{awayTeamName}</span>
           </div>
-          
+
           <div className="border-t border-gray-700 mt-6 pt-6 text-center sm:text-left">
             <h3 className="text-lg font-semibold text-white mb-3">Detalles do Partido</h3>
             <div className="space-y-2 text-gray-300">
               <p>
-                <span className="font-medium text-gray-400 w-28 inline-block">Data:</span> 
+                <span className="font-medium text-gray-400 w-28 inline-block">Data:</span>
                 {new Date(match.match_date).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })}
               </p>
               {match.competition && (
                 <p>
-                  <span className="font-medium text-gray-400 w-28 inline-block">Competición:</span> 
+                  <span className="font-medium text-gray-400 w-28 inline-block">Competición:</span>
                   {match.competition}
                 </p>
               )}
               {match.location && (
                 <p>
-                  <span className="font-medium text-gray-400 w-28 inline-block">Lugar:</span> 
+                  <span className="font-medium text-gray-400 w-28 inline-block">Lugar:</span>
                   {match.location}
                 </p>
               )}
             </div>
           </div>
-          
-          {match.video_url && (
+
+          {embedUrl && (
             <div className="border-t border-gray-700 mt-6 pt-6">
               <h3 className="text-lg font-semibold text-white mb-3">Vídeo</h3>
-              <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
-                <iframe 
-                  src={match.video_url.replace("watch?v=", "embed/")}
-                  frameBorder="0" 
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              <div className="aspect-video rounded-lg overflow-hidden">
+                <iframe
+                  src={embedUrl}
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                   className="w-full h-full"
                 ></iframe>
@@ -342,7 +368,7 @@ const GaelicScore = ({ score }: { score: Score }) => (
           </div>
         </div>
 
-        <ActionPanel 
+        <ActionPanel
           onLogAction={handleLogAction}
           homeTeamId={match.home_team_id}
           awayTeamId={match.away_team_id}
@@ -363,8 +389,8 @@ const GaelicScore = ({ score }: { score: Score }) => (
           matchId={match.id}
           actionToLog={actionToLog}
           participants={
-            actionToLog.teamId === match.home_team_id 
-              ? homeParticipants 
+            actionToLog.teamId === match.home_team_id
+              ? homeParticipants
               : awayParticipants
           }
           onClose={() => setShowActionModal(false)}

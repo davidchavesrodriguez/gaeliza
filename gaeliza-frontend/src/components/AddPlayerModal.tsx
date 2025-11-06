@@ -164,7 +164,7 @@ export default function AddPlayerModal({ matchId, team, onClose, existingPartici
 
                 {availablePlayers.map(p => (
                   <option key={p.id} value={p.id}>
-                    {p.first_name} {p.last_name} ({p.type})
+                    {p.first_name} {p.last_name}
                   </option>
                 ))}
               </select>
