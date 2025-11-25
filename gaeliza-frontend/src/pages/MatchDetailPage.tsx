@@ -384,15 +384,17 @@ export default function MatchDetailPage() {
         />
       )}
 
-      {showActionModal && actionToLog && match && (
+{showActionModal && actionToLog && match && (
         <LogActionModal
           matchId={match.id}
           actionToLog={actionToLog}
           participants={
-            actionToLog.teamId === match.home_team_id
-              ? homeParticipants
+            actionToLog.teamId === match.home_team_id 
+              ? homeParticipants 
               : awayParticipants
           }
+          homeTeamName={match.home_team?.name || 'Local'}
+          awayTeamName={match.away_team?.name || 'Visitante'}
           onClose={() => setShowActionModal(false)}
         />
       )}

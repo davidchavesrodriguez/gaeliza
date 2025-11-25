@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { supabase } from '../supabaseClient';
 import type { Database } from '../types/supabase';
 import type { ActionType } from './ActionPanel';
+import InteractivePitch from './InteractivePitch';
 
 type ActionInsert = Database['public']['Tables']['actions']['Insert'];
 type Player = Database['public']['Tables']['players']['Row'];
@@ -14,6 +15,8 @@ interface LogActionModalProps {
   matchId: number;
   actionToLog: { type: ActionType; teamId: number };
   participants: ParticipantWithPlayer[];
+  homeTeamName: string;
+  awayTeamName: string;
   onClose: () => void;
 }
 
@@ -52,18 +55,18 @@ const SUBTYPE_OPTIONS: Partial<Record<ActionType, { label: string, options: stri
   },
   'saque_porteria': {
     label: 'Resultado (Opcional)',
-    options: ['bo_saque (curto)', 'mal_saque (curto)', 'bo_saque (longo)', 'mal_saque (longo)']
+    options: ['bo_curto', 'bo_longo', 'malo_curto', 'malo_longo']
   }
 };
 
-export default function LogActionModal({ matchId, actionToLog, participants, onClose }: LogActionModalProps) {
+export default function LogActionModal({ matchId, actionToLog, participants, homeTeamName, awayTeamName, onClose }: LogActionModalProps) {
   
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [minute, setMinute] = useState<string>('');
   const [second, setSecond] = useState<string>('0');
   const [selectedSubtype, setSelectedSubtype] = useState<string>('');
-  
   const [selectedCard, setSelectedCard] = useState<ActionType | null>(null);
+  const [position, setPosition] = useState<{ x: number, y: number } | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +95,8 @@ export default function LogActionModal({ matchId, actionToLog, participants, onC
         minute: parseInt(minute, 10),
         second: second === '' ? 0 : parseInt(second, 10),
         player_id: selectedPlayerId ? parseInt(selectedPlayerId, 10) : null,
+        x_position: position?.x ?? null,
+        y_position: position?.y ?? null,
       };
 
       const { error: insertError } = await supabase
@@ -105,10 +110,12 @@ export default function LogActionModal({ matchId, actionToLog, participants, onC
           match_id: matchId,
           team_id: actionToLog.teamId,
           type: selectedCard, 
-          subtype: null, 
+          subtype: null,
           minute: parseInt(minute, 10),
           second: second === '' ? 0 : parseInt(second, 10),
           player_id: selectedPlayerId ? parseInt(selectedPlayerId, 10) : null,
+          x_position: position?.x ?? null,
+          y_position: position?.y ?? null,
         };
 
         const { error: cardError } = await supabase
@@ -128,10 +135,10 @@ export default function LogActionModal({ matchId, actionToLog, participants, onC
     }
   };
 
-const formatOption = (opt: string) => {
-  const text = opt.replace(/_/g, ' ');
-  return text.charAt(0).toUpperCase() + text.slice(1);
-};
+  const formatOption = (opt: string) => {
+    const text = opt.replace(/_/g, ' ');
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40 p-4">
@@ -206,7 +213,7 @@ const formatOption = (opt: string) => {
                       : 'bg-gray-800 text-yellow-500 border-gray-600 hover:bg-gray-700'
                   }`}
                 >
-                  Amarelo
+                  Amarela
                 </button>
                 <button
                   type="button"
@@ -217,7 +224,7 @@ const formatOption = (opt: string) => {
                       : 'bg-gray-800 text-gray-400 border-gray-600 hover:bg-gray-700'
                   }`}
                 >
-                  Negro
+                  Negra
                 </button>
                 <button
                   type="button"
@@ -228,7 +235,7 @@ const formatOption = (opt: string) => {
                       : 'bg-gray-800 text-red-500 border-gray-600 hover:bg-gray-700'
                   }`}
                 >
-                  Vermello
+                  Vermella
                 </button>
               </div>
               {selectedCard && (
@@ -239,6 +246,19 @@ const formatOption = (opt: string) => {
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {actionToLog.type !== 'saque_porteria' && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Posición no campo (Opcional)
+              </label>
+              <InteractivePitch 
+                onPositionSelect={(x, y) => setPosition({ x, y })} 
+                homeTeamName={homeTeamName}
+                awayTeamName={awayTeamName}
+              />
             </div>
           )}
 
