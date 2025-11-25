@@ -18,6 +18,7 @@ interface LogActionModalProps {
   homeTeamName: string;
   awayTeamName: string;
   onClose: () => void;
+  initialTime: number;
 }
 
 const SUBTYPE_OPTIONS: Partial<Record<ActionType, { label: string, options: string[] }>> = {
@@ -59,11 +60,14 @@ const SUBTYPE_OPTIONS: Partial<Record<ActionType, { label: string, options: stri
   }
 };
 
-export default function LogActionModal({ matchId, actionToLog, participants, homeTeamName, awayTeamName, onClose }: LogActionModalProps) {
+export default function LogActionModal({ matchId, actionToLog, participants, homeTeamName, awayTeamName, onClose, initialTime }: LogActionModalProps) {
   
+  const initialMinute = Math.floor(initialTime / 60);
+  const initialSecond = initialTime % 60;
+
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
-  const [minute, setMinute] = useState<string>('');
-  const [second, setSecond] = useState<string>('0');
+  const [minute, setMinute] = useState<string>(initialMinute.toString());
+  const [second, setSecond] = useState<string>(initialSecond.toString());
   const [selectedSubtype, setSelectedSubtype] = useState<string>('');
   const [selectedCard, setSelectedCard] = useState<ActionType | null>(null);
   const [position, setPosition] = useState<{ x: number, y: number } | null>(null);
@@ -141,7 +145,7 @@ export default function LogActionModal({ matchId, actionToLog, participants, hom
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
       <div className="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         
         <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
@@ -264,13 +268,12 @@ export default function LogActionModal({ matchId, actionToLog, participants, hom
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="minute" className="block text-sm font-medium text-gray-300 mb-1">Minuto*</label>
+              <label htmlFor="minute" className="block text-sm font-medium text-gray-300 mb-1">Minuto</label>
               <input
                 type="number"
                 id="minute"
                 value={minute}
                 onChange={(e) => setMinute(e.target.value)}
-                required
                 className="w-full px-3 py-2 border border-gray-700 bg-gray-700 text-white rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
                 placeholder="0"
               />

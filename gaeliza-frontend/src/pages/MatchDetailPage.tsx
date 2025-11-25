@@ -5,8 +5,8 @@ import type { Database } from '../types/supabase';
 import AddPlayerModal from '../components/AddPlayerModal';
 import ActionPanel, { type ActionType } from '../components/ActionPanel';
 import LogActionModal from '../components/LogActionModal';
+import FloatingStopwatch from '../components/FloatingStopwatch';
 
-type Action = Database['public']['Tables']['actions']['Row'];
 type Player = Database['public']['Tables']['players']['Row'];
 type Participant = Database['public']['Tables']['match_participants']['Row'];
 type ParticipantWithPlayer = Participant & {
@@ -19,6 +19,7 @@ type MatchWithTeams = Match & {
   away_team: Pick<Team, 'id' | 'name' | 'shield_url'> | null;
 };
 type Score = { goals: number, points: number, total: number };
+type Action = Database['public']['Tables']['actions']['Row'];
 
 export default function MatchDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -29,7 +30,7 @@ export default function MatchDetailPage() {
   const [homeParticipants, setHomeParticipants] = useState<ParticipantWithPlayer[]>([]);
   const [awayParticipants, setAwayParticipants] = useState<ParticipantWithPlayer[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(true);
-
+  
   const [actions, setActions] = useState<Action[]>([]);
   const [loadingActions, setLoadingActions] = useState(true);
   const [score, setScore] = useState<{ home: Score, away: Score }>({
@@ -41,7 +42,24 @@ export default function MatchDetailPage() {
   const [modalTeam, setModalTeam] = useState<{ id: number; name: string } | null>(null);
 
   const [showActionModal, setShowActionModal] = useState(false);
-  const [actionToLog, setActionToLog] = useState<{ type: ActionType; teamId: number } | null>(null);
+  const [actionToLog, setActionToLog] = useState<{ type: ActionType; teamId: number; capturedTime: number } | null>(null);
+
+  const [gameTime, setGameTime] = useState(0); 
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+  useEffect(() => {
+    let interval: any = null;
+    if (isTimerRunning) {
+      interval = setInterval(() => {
+        setGameTime(prev => prev + 1);
+      }, 1000);
+    } else if (!isTimerRunning && interval) {
+      clearInterval(interval);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isTimerRunning]);
 
   useEffect(() => {
     const fetchMatch = async () => {
@@ -73,7 +91,6 @@ export default function MatchDetailPage() {
   useEffect(() => {
     const fetchData = async () => {
       if (!match) return;
-
       setLoadingParticipants(true);
       setLoadingActions(true);
       try {
@@ -103,7 +120,7 @@ export default function MatchDetailPage() {
         setError("Erro ao cargar os datos do partido.");
       }
     };
-
+    
     if (match && !showPlayerModal && !showActionModal) {
       fetchData();
     }
@@ -111,15 +128,12 @@ export default function MatchDetailPage() {
 
   useEffect(() => {
     if (!match) return;
-
     const homeTeamId = match.home_team_id;
     const awayTeamId = match.away_team_id;
-
     let homeGoals = 0;
     let homePoints = 0;
     let awayGoals = 0;
     let awayPoints = 0;
-
     for (const action of actions) {
       if (action.team_id === homeTeamId) {
         if (action.type === 'gol') homeGoals++;
@@ -129,20 +143,10 @@ export default function MatchDetailPage() {
         if (action.type === 'punto') awayPoints++;
       }
     }
-
     setScore({
-      home: {
-        goals: homeGoals,
-        points: homePoints,
-        total: (homeGoals * 3) + homePoints
-      },
-      away: {
-        goals: awayGoals,
-        points: awayPoints,
-        total: (awayGoals * 3) + awayPoints
-      }
+      home: { goals: homeGoals, points: homePoints, total: (homeGoals * 3) + homePoints },
+      away: { goals: awayGoals, points: awayPoints, total: (awayGoals * 3) + awayPoints }
     });
-
   }, [actions, match]);
 
   const handleOpenPlayerModal = (team: { id: number; name: string }) => {
@@ -153,9 +157,10 @@ export default function MatchDetailPage() {
     setShowPlayerModal(false);
     setModalTeam(null);
   };
+
   const handleLogAction = (type: ActionType, teamId: number) => {
-    setActionToLog({ type, teamId });
-    setShowActionModal(true);
+    setActionToLog({ type, teamId, capturedTime: gameTime });
+    setShowActionModal(true); 
   };
 
   if (loading) {
@@ -183,9 +188,9 @@ export default function MatchDetailPage() {
 
   if (!match || !match.home_team || !match.away_team) {
     return (
-      <div className="text-center py-10 text-gray-400">
+       <div className="text-center py-10 text-gray-400">
         Partido non atopado ou datos incompletos.
-      </div>
+       </div>
     );
   }
 
@@ -239,44 +244,34 @@ export default function MatchDetailPage() {
 
   const getYouTubeEmbedUrl = (url: string | null): string | null => {
     if (!url) return null;
-
     let videoId: string | null = null;
-
-    const regExp = new RegExp(
-      "(?:youtube\\.com\\/(?:[^\\/]+\\/.+\\/|(?:v|e(?:mbed)?)\\/|.*[?&]v=)|youtu\\.be\\/)([^\"&?\\/\\s]{11})",
-      "i"
-    );
-
+    const regExp = new RegExp("(?:youtube\\.com\\/(?:[^\\/]+\\/.+\\/|(?:v|e(?:mbed)?)\\/|.*[?&]v=)|youtu\\.be\\/)([^\"&?\\/\\s]{11})", "i");
     const match = url.match(regExp);
-
     if (match && match[1]) {
       videoId = match[1];
     }
-
     if (videoId && videoId.length === 11) {
       return `https://www.youtube.com/embed/${videoId}`;
     }
-
     return null;
   };
 
   const embedUrl = getYouTubeEmbedUrl(match.video_url);
 
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
       <div className="mb-6">
         <Link to="/" className="text-sm text-blue-400 hover:text-blue-300">
           &larr; Volver a tódolos partidos
         </Link>
       </div>
-
+      
       <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
         <div className="p-6">
 
           <div className="flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
             <div className="flex items-center gap-3 sm:gap-4 order-1 sm:order-1 mb-4 sm:mb-0">
-              <img src={homeShield} alt={homeTeamName} className="w-12 h-12 rounded-full object-cover bg-gray-600" />
+              <img src={homeShield} alt={homeTeamName} className="w-12 h-12 rounded-full object-cover bg-gray-600"/>
               <span className="text-2xl font-bold text-white hidden sm:inline">{homeTeamName}</span>
             </div>
 
@@ -286,9 +281,7 @@ export default function MatchDetailPage() {
               ) : (
                 <GaelicScore score={score.home} />
               )}
-
               <span className="text-xl text-gray-400">vs</span>
-
               {loadingActions ? (
                 <span className="text-lg text-gray-400 animate-pulse">...</span>
               ) : (
@@ -297,7 +290,7 @@ export default function MatchDetailPage() {
             </div>
 
             <div className="flex items-center gap-3 sm:gap-4 order-3 sm:order-3 mt-4 sm:mt-0">
-              <img src={awayShield} alt={awayTeamName} className="w-12 h-12 rounded-full object-cover bg-gray-600" />
+              <img src={awayShield} alt={awayTeamName} className="w-12 h-12 rounded-full object-cover bg-gray-600"/>
               <span className="text-2xl font-bold text-white hidden sm:inline">{awayTeamName}</span>
             </div>
           </div>
@@ -306,37 +299,37 @@ export default function MatchDetailPage() {
             <div className="w-1/5"></div>
             <span className="text-lg font-semibold text-white w-2/5 truncate">{awayTeamName}</span>
           </div>
-
+          
           <div className="border-t border-gray-700 mt-6 pt-6 text-center sm:text-left">
             <h3 className="text-lg font-semibold text-white mb-3">Detalles do Partido</h3>
             <div className="space-y-2 text-gray-300">
               <p>
-                <span className="font-medium text-gray-400 w-28 inline-block">Data:</span>
+                <span className="font-medium text-gray-400 w-28 inline-block">Data:</span> 
                 {new Date(match.match_date).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })}
               </p>
               {match.competition && (
                 <p>
-                  <span className="font-medium text-gray-400 w-28 inline-block">Competición:</span>
+                  <span className="font-medium text-gray-400 w-28 inline-block">Competición:</span> 
                   {match.competition}
                 </p>
               )}
               {match.location && (
                 <p>
-                  <span className="font-medium text-gray-400 w-28 inline-block">Lugar:</span>
+                  <span className="font-medium text-gray-400 w-28 inline-block">Lugar:</span> 
                   {match.location}
                 </p>
               )}
             </div>
           </div>
-
+          
           {embedUrl && (
             <div className="border-t border-gray-700 mt-6 pt-6">
               <h3 className="text-lg font-semibold text-white mb-3">Vídeo</h3>
-              <div className="aspect-video rounded-lg overflow-hidden">
-                <iframe
+              <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
+                <iframe 
                   src={embedUrl}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  frameBorder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                   allowFullScreen
                   className="w-full h-full"
                 ></iframe>
@@ -368,12 +361,23 @@ export default function MatchDetailPage() {
           </div>
         </div>
 
-        <ActionPanel
+        <ActionPanel 
           onLogAction={handleLogAction}
           homeTeamId={match.home_team_id}
           awayTeamId={match.away_team_id}
         />
       </div>
+
+      <FloatingStopwatch 
+        time={gameTime}
+        isRunning={isTimerRunning}
+        onToggle={() => setIsTimerRunning(!isTimerRunning)}
+        onReset={() => {
+          setIsTimerRunning(false);
+          setGameTime(0);
+        }}
+        onAdjust={(seconds) => setGameTime(prev => Math.max(0, prev + seconds))}
+      />
 
       {showPlayerModal && modalTeam && (
         <AddPlayerModal
@@ -384,10 +388,11 @@ export default function MatchDetailPage() {
         />
       )}
 
-{showActionModal && actionToLog && match && (
+      {showActionModal && actionToLog && match && (
         <LogActionModal
           matchId={match.id}
           actionToLog={actionToLog}
+          initialTime={actionToLog.capturedTime} 
           participants={
             actionToLog.teamId === match.home_team_id 
               ? homeParticipants 
@@ -398,7 +403,6 @@ export default function MatchDetailPage() {
           onClose={() => setShowActionModal(false)}
         />
       )}
-
     </div>
   );
 }
