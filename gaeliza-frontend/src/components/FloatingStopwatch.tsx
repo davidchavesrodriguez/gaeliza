@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface FloatingStopwatchProps {
   time: number;
   isRunning: boolean;

@@ -3,8 +3,6 @@ import { supabase } from '../supabaseClient';
 import type { Database } from '../types/supabase';
 
 type Player = Database['public']['Tables']['players']['Row'];
-type PlayerInsert = Database['public']['Tables']['players']['Insert'];
-type ParticipantInsert = Database['public']['Tables']['match_participants']['Insert'];
 
 interface AddPlayerModalProps {
   matchId: number;
