@@ -6,6 +6,7 @@ import AddPlayerModal from '../components/AddPlayerModal';
 import ActionPanel, { type ActionType } from '../components/ActionPanel';
 import LogActionModal from '../components/LogActionModal';
 import FloatingStopwatch from '../components/FloatingStopwatch';
+import ActionFeed from '../components/ActionFeed';
 
 type Player = Database['public']['Tables']['players']['Row'];
 type Participant = Database['public']['Tables']['match_participants']['Row'];
@@ -44,7 +45,7 @@ export default function MatchDetailPage() {
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionToLog, setActionToLog] = useState<{ type: ActionType; teamId: number; capturedTime: number } | null>(null);
 
-  const [gameTime, setGameTime] = useState(0); 
+  const [gameTime, setGameTime] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
   useEffect(() => {
@@ -148,6 +149,23 @@ export default function MatchDetailPage() {
       away: { goals: awayGoals, points: awayPoints, total: (awayGoals * 3) + awayPoints }
     });
   }, [actions, match]);
+
+  const handleDeleteAction = async (actionId: number) => {
+    try {
+      const { error } = await supabase
+        .from('actions')
+        .delete()
+        .eq('id', actionId);
+
+      if (error) throw error;
+
+      setActions(prev => prev.filter(a => a.id !== actionId));
+
+    } catch (err) {
+      console.error("Error ao borrar acción:", err);
+      alert("Non se puido borrar a acción.");
+    }
+  };
 
   const handleOpenPlayerModal = (team: { id: number; name: string }) => {
     setModalTeam(team);
@@ -259,7 +277,7 @@ export default function MatchDetailPage() {
   const embedUrl = getYouTubeEmbedUrl(match.video_url);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
       <div className="mb-6">
         <Link to="/" className="text-sm text-blue-400 hover:text-blue-300">
           &larr; Volver a tódolos partidos
@@ -365,6 +383,16 @@ export default function MatchDetailPage() {
           onLogAction={handleLogAction}
           homeTeamId={match.home_team_id}
           awayTeamId={match.away_team_id}
+        />
+
+        <ActionFeed 
+          actions={actions}
+          homeTeamId={match.home_team_id}
+          awayTeamId={match.away_team_id}
+          homeTeamName={homeTeamName}
+          awayTeamName={awayTeamName}
+          participants={[...homeParticipants, ...awayParticipants]}
+          onDeleteAction={handleDeleteAction}
         />
       </div>
 
