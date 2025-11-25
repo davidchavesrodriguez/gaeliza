@@ -23,6 +23,7 @@ export type Database = {
           minute: number
           player_id: number | null
           second: number | null
+          subtype: string | null
           team_id: number
           type: string
           x_position: number | null
@@ -36,6 +37,7 @@ export type Database = {
           minute: number
           player_id?: number | null
           second?: number | null
+          subtype?: string | null
           team_id: number
           type: string
           x_position?: number | null
@@ -49,6 +51,7 @@ export type Database = {
           minute?: number
           player_id?: number | null
           second?: number | null
+          subtype?: string | null
           team_id?: number
           type?: string
           x_position?: number | null
@@ -280,6 +283,7 @@ export type Database = {
           gender: Database["public"]["Enums"]["team_gender"] | null
           id: number
           name: string
+          parent_team_id: number | null
           shield_url: string | null
           type: string | null
         }
@@ -289,6 +293,7 @@ export type Database = {
           gender?: Database["public"]["Enums"]["team_gender"] | null
           id?: number
           name: string
+          parent_team_id?: number | null
           shield_url?: string | null
           type?: string | null
         }
@@ -298,10 +303,19 @@ export type Database = {
           gender?: Database["public"]["Enums"]["team_gender"] | null
           id?: number
           name?: string
+          parent_team_id?: number | null
           shield_url?: string | null
           type?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "teams_parent_team_id_fkey"
+            columns: ["parent_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
