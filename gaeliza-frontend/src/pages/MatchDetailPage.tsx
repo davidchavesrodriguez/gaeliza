@@ -348,7 +348,7 @@ export default function MatchDetailPage() {
               {score.home.goals}-{score.home.points} <span className="mx-2 text-gray-600">|</span> {score.away.goals}-{score.away.points}
             </div>
             <div className="mt-2 px-2 py-0.5 bg-green-900/30 text-green-400 text-xs rounded border border-green-900/50">
-              {isOwner ? 'EN VIVO (EDICIÓN)' : 'MODO ESPECTADOR'}
+              {isOwner ? 'MODO EDICIÓN' : 'MODO ESPECTADOR'}
             </div>
           </div>
 

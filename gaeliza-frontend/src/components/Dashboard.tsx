@@ -17,13 +17,17 @@ type MatchWithDetails = Match & {
 /**
  * Compoñente Dashboard
  * Pantalla principal da aplicación. Mostra un panel con todos os partidos rexistrados,
- * distinguindo visualmente os creados polo usuario actual.
+ * con opcións de filtrado e busca.
  */
 export default function Dashboard() {
   const [matches, setMatches] = useState<MatchWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Estados para os filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterMine, setFilterMine] = useState(false);
 
   useEffect(() => {
     // 1. Obtemos o usuario actual para identificar a propiedade dos partidos
@@ -47,7 +51,8 @@ export default function Dashboard() {
           .order('match_date', { ascending: false });
 
         if (error) throw error;
-                setMatches((data as any) || []);
+        
+        setMatches((data as any) || []);
         
       } catch (error) {
         console.error('Erro cargando partidos:', error);
@@ -59,25 +64,74 @@ export default function Dashboard() {
     fetchMatches();
   }, [showCreateModal]);
 
+  /**
+   * Lóxica de filtrado de partidos baseada nos criterios do usuario.
+   */
+  const filteredMatches = matches.filter(match => {
+    // 1. Filtro de texto
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = 
+      match.home_team?.name.toLowerCase().includes(term) ||
+      match.away_team?.name.toLowerCase().includes(term) ||
+      match.competition?.toLowerCase().includes(term) ||
+      match.location?.toLowerCase().includes(term);
+
+    // 2. Filtro de propiedade
+    const matchesMine = filterMine ? match.created_by === currentUserId : true;
+
+    return matchesSearch && matchesMine;
+  });
+
   if (loading) return <div className="text-center py-10 text-gray-400">Cargando partidos...</div>;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       
       {/* Cabeceira e Botón de Creación */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold text-white">Panel de Partidos</h1>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors shadow-lg shadow-blue-900/20"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors shadow-lg shadow-blue-900/20 w-full sm:w-auto"
         >
           + Novo Partido
         </button>
       </div>
 
-      {/* Grella de Partidos */}
+      {/* Barra de Filtros */}
+      <div className="bg-gray-800 p-4 rounded-lg shadow-md mb-8 flex flex-col sm:flex-row gap-4 items-center border border-gray-700">
+        {/* Buscador */}
+        <div className="relative w-full sm:flex-1">
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+            🔍
+          </span>
+          <input
+            type="text"
+            placeholder="Buscar equipo, competición ou lugar..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          />
+        </div>
+
+        {/* Toggle Partidos Propios*/}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => setFilterMine(!filterMine)}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-sm font-medium transition-all border ${
+              filterMine 
+                ? 'bg-blue-600 text-white border-blue-500 shadow-blue-900/50 shadow-inner' 
+                : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
+            }`}
+          >
+            {filterMine ? '★ Só os meus' : '☆ Tódolos partidos'}
+          </button>
+        </div>
+      </div>
+
+      {/* Grella de Partidos Filtrados */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {matches.map((match) => {
+        {filteredMatches.map((match) => {
           const isMyMatch = currentUserId === match.created_by;
 
           // Clases dinámicas baseadas na propiedade do partido
@@ -97,7 +151,7 @@ export default function Dashboard() {
             <Link to={`/match/${match.id}`} key={match.id} className="block group">
               <div className={`rounded-lg shadow-lg overflow-hidden border transition-all duration-300 ${cardClasses}`}>
                 
-                {/* Cabeceira da Tarxeta*/}
+                {/* Cabeceira da Tarxeta */}
                 <div className={`p-4 flex justify-between items-center ${headerClasses}`}>
                   <span className={`text-xs font-mono ${isMyMatch ? 'text-blue-300' : 'text-gray-500'}`}>
                     {new Date(match.match_date).toLocaleDateString()}
@@ -105,12 +159,12 @@ export default function Dashboard() {
 
                   {isMyMatch && (
                     <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm tracking-wide">
-                      Análise propio
+                      TEU PARTIDO
                     </span>
                   )}
                 </div>
 
-                {/* Contido Principal*/}
+                {/* Contido Principal */}
                 <div className="p-6 flex items-center justify-between">
                   {/* Equipo Local */}
                   <div className="flex flex-col items-center w-1/3">
@@ -148,15 +202,24 @@ export default function Dashboard() {
         })}
 
         {/* Estado baleiro */}
-        {matches.length === 0 && (
+        {filteredMatches.length === 0 && (
           <div className="col-span-full text-center py-16 bg-gray-800/30 rounded-lg border border-dashed border-gray-700">
-            <p className="text-gray-400 mb-2">Non hai partidos rexistrados.</p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="text-blue-400 hover:text-blue-300 underline text-sm"
-            >
-              Sé o primeiro en crear un!
-            </button>
+            <p className="text-gray-400 mb-2">Non se atoparon partidos.</p>
+            {(searchTerm || filterMine) ? (
+              <button 
+                onClick={() => { setSearchTerm(''); setFilterMine(false); }}
+                className="text-blue-400 hover:text-blue-300 underline text-sm"
+              >
+                Limpar filtros
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="text-blue-400 hover:text-blue-300 underline text-sm"
+              >
+                Sé o primeiro en crear un!
+              </button>
+            )}
           </div>
         )}
       </div>

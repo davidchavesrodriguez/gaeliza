@@ -15,6 +15,7 @@ interface MatchFormProps {
  * Compoñente de formulario para a creación de novos partidos.
  * Permite seleccionar a categoría (xénero), os equipos correspondentes,
  * a data, o lugar e outros detalles opcionais.
+ * Inclúe feedback visual de éxito/erro.
  */
 export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) {
 
@@ -36,10 +37,11 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
   const [homeTeams, setHomeTeams] = useState<Team[]>([]);
   const [awayTeams, setAwayTeams] = useState<Team[]>([]);
 
-  // Estados de interface (carga e erros)
+  // Estados de interface (carga, erros e éxito)
   const [loadingTeams, setLoadingTeams] = useState<{ home: boolean; away: boolean }>({ home: false, away: false });
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   /**
    * Función auxiliar para cargar equipos filtrados por xénero desde Supabase.
@@ -83,7 +85,7 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
   }, [awayGender]);
 
   /**
-   * Xestiona o cambio de categoría (xénero).
+   * Xestiona o cambio de xénero.
    * Resetea a selección do equipo correspondente para evitar inconsistencias.
    */
   const handleGenderChange = (e: ChangeEvent<HTMLSelectElement>, type: 'home' | 'away') => {
@@ -118,6 +120,7 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
     e.preventDefault();
     setLoadingSubmit(true);
     setError(null);
+    setSuccess(null);
 
     // Validación básica
     if (!formData.home_team_id || !formData.away_team_id || !formData.match_date) {
@@ -127,7 +130,7 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
     }
 
     try {
-      // Obter o usuario actual para o campo created_by
+      // Obter o usuario actual
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario non autenticado.');
 
@@ -147,14 +150,17 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
 
       if (insertError) throw insertError;
 
-      alert('¡Partido rexistrado con éxito!');
-      onMatchCreated();
+      // Éxito: mostramos mensaxe e pechamos tras un breve retardo
+      setSuccess('Partido rexistrado con éxito! Redirixindo...');
+      
+      setTimeout(() => {
+        onMatchCreated();
+      }, 1500);
 
     } catch (err: any) {
       setError(err.message || 'Erro ao rexistrar o partido.');
       console.error("Erro inserindo partido:", err);
-    } finally {
-      setLoadingSubmit(false);
+      setLoadingSubmit(false); // Só paramos o loading se hai erro
     }
   };
 
@@ -169,7 +175,7 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-20 p-4">
-      <div className="bg-gray-800 p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-gray-800 p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-gray-700">
         <h2 className="text-2xl font-bold text-white mb-6">Rexistrar novo partido</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -325,35 +331,47 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
             />
           </div>
 
-          {/* Mensaxes de erro */}
-          {error && (
-            <div className="rounded-md bg-red-900 bg-opacity-50 p-3">
-              <p className="text-sm text-red-300">{error}</p>
-            </div>
-          )}
+          {/* Mensaxes de estado */}
+          <div className="space-y-2">
+            {error && (
+              <div className="rounded-md bg-red-900/50 border border-red-800 p-3 animate-in fade-in slide-in-from-top-2">
+                <p className="text-sm text-red-300">{error}</p>
+              </div>
+            )}
+
+            {success && (
+              <div className="rounded-md bg-green-900/50 border border-green-800 p-3 animate-in fade-in slide-in-from-top-2">
+                <p className="text-sm text-green-300 font-medium flex items-center gap-2">
+                  <span>✅</span> {success}
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Botóns de Acción */}
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700 mt-4">
             <button
               type="button"
               onClick={onCancel}
-              disabled={loadingSubmit}
-              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-gray-500 disabled:opacity-50 transition-colors"
+              disabled={loadingSubmit || !!success}
+              className="px-4 py-2 bg-transparent text-gray-400 hover:text-white transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={loadingSubmit || loadingTeams.home || loadingTeams.away}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 disabled:opacity-50 transition-colors flex items-center"
+              disabled={loadingSubmit || loadingTeams.home || loadingTeams.away || !!success}
+              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 disabled:opacity-50 transition-all flex items-center shadow-lg shadow-blue-900/20"
             >
-              {loadingSubmit && (
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              )}
-              {loadingSubmit ? 'Gardando...' : 'Rexistrar Partido'}
+              {loadingSubmit ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Procesando...
+                </>
+              ) : success ? 'Feito!' : 'Rexistrar Partido'}
             </button>
           </div>
         </form>
