@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import type { Database } from '../types/supabase';
@@ -8,6 +8,7 @@ import LogActionModal from '../components/LogActionModal';
 import FloatingStopwatch from '../components/FloatingStopwatch';
 import ActionFeed from '../components/ActionFeed';
 
+// --- Definición de Tipos ---
 type Player = Database['public']['Tables']['players']['Row'];
 type Participant = Database['public']['Tables']['match_participants']['Row'];
 type ParticipantWithPlayer = Participant & {
@@ -18,36 +19,147 @@ type Team = Database['public']['Tables']['teams']['Row'];
 type MatchWithTeams = Match & {
   home_team: Pick<Team, 'id' | 'name' | 'shield_url'> | null;
   away_team: Pick<Team, 'id' | 'name' | 'shield_url'> | null;
+  owner?: { username: string } | null;
 };
-type Score = { goals: number, points: number, total: number };
 type Action = Database['public']['Tables']['actions']['Row'];
 
+/**
+ * Extrae o ID dun video de YouTube dende unha URL estándar ou curta.
+ */
+const getYouTubeEmbedUrl = (url: string | null): string | null => {
+  if (!url) return null;
+  const regExp = new RegExp("(?:youtube\\.com\\/(?:[^\\/]+\\/.+\\/|(?:v|e(?:mbed)?)\\/|.*[?&]v=)|youtu\\.be\\/)([^\"&?\\/\\s]{11})", "i");
+  const m = url.match(regExp);
+  return (m && m[1]) ? `https://www.youtube.com/embed/${m[1]}` : null;
+};
+
+/**
+ * Compoñente de sección despregable para organizar a información da páxina.
+ */
+const CollapsibleSection = ({ 
+  title, 
+  children, 
+  defaultOpen = false,
+  visible = true 
+}: { 
+  title: string, 
+  children: React.ReactNode, 
+  defaultOpen?: boolean,
+  visible?: boolean 
+}) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  if (!visible) return null;
+
+  return (
+    <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden mb-4 border border-gray-700">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-6 py-4 flex justify-between items-center bg-gray-900/50 hover:bg-gray-800 transition-colors text-left"
+      >
+        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          {title}
+        </h3>
+        <span className={`text-gray-400 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+          ▼
+        </span>
+      </button>
+      
+      {isOpen && (
+        <div className="p-6 border-t border-gray-700 animate-in fade-in slide-in-from-top-2">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Compoñente auxiliar para mostrar a lista de convocados dun equipo.
+ */
+const TeamParticipantList = ({ 
+  list, 
+  teamName, 
+  teamId, 
+  isOwner, 
+  onManage 
+}: { 
+  list: ParticipantWithPlayer[], 
+  teamName: string, 
+  teamId: number, 
+  isOwner: boolean, 
+  onManage: (team: { id: number, name: string }) => void 
+}) => (
+  <div className="bg-gray-900 p-4 rounded-lg">
+    <h4 className="font-bold text-white mb-3 border-b border-gray-700 pb-2">{teamName}</h4>
+    <ul className="space-y-1 text-sm text-gray-300 mb-4">
+      {list.length === 0 ? (
+        <li className="italic text-gray-500">Sen convocatoria.</li>
+      ) : (
+        list.map(p => (
+          <li key={p.id} className="flex justify-between p-1 hover:bg-gray-800 rounded">
+            <span>
+              <span className="font-mono text-gray-500 w-6 inline-block">{p.players?.number || '-'}</span>
+              {p.players?.first_name} {p.players?.last_name}
+            </span>
+          </li>
+        ))
+      )}
+    </ul>
+    {isOwner && (
+      <button
+        onClick={() => onManage({ id: teamId, name: teamName })}
+        className="w-full py-2 text-sm bg-blue-600/20 text-blue-400 border border-blue-600/50 rounded hover:bg-blue-600 hover:text-white transition-all"
+      >
+        + Xestionar
+      </button>
+    )}
+  </div>
+);
+
+/**
+ * Páxina principal de Detalle do Partido.
+ * Centraliza a lóxica de visualización, cronometraxe e rexistro de eventos.
+ * Xestiona o estado global do partido e coordina os compoñentes fillos.
+ */
 export default function MatchDetailPage() {
   const { id } = useParams<{ id: string }>();
+  
+  // Estados de datos principais
   const [match, setMatch] = useState<MatchWithTeams | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   const [homeParticipants, setHomeParticipants] = useState<ParticipantWithPlayer[]>([]);
   const [awayParticipants, setAwayParticipants] = useState<ParticipantWithPlayer[]>([]);
-  const [loadingParticipants, setLoadingParticipants] = useState(true);
-  
   const [actions, setActions] = useState<Action[]>([]);
+  
+  // Estados de interface e carga
+  const [loading, setLoading] = useState(true);
+  const [loadingParticipants, setLoadingParticipants] = useState(true);
   const [loadingActions, setLoadingActions] = useState(true);
-  const [score, setScore] = useState<{ home: Score, away: Score }>({
-    home: { goals: 0, points: 0, total: 0 },
-    away: { goals: 0, points: 0, total: 0 }
-  });
+  const [error, setError] = useState<string | null>(null);
 
+  // Estados dos modais
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const [modalTeam, setModalTeam] = useState<{ id: number; name: string } | null>(null);
-
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionToLog, setActionToLog] = useState<{ type: ActionType; teamId: number; capturedTime: number } | null>(null);
 
+  // Estados do cronómetro
   const [gameTime, setGameTime] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
+  // Estado de usuario
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // 1. Carga de usuario para verificación de permisos
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    getUser();
+  }, []);
+
+  // 2. Lóxica do cronómetro
   useEffect(() => {
     let interval: any = null;
     if (isTimerRunning) {
@@ -62,6 +174,7 @@ export default function MatchDetailPage() {
     };
   }, [isTimerRunning]);
 
+  // 3. Carga inicial do partido
   useEffect(() => {
     const fetchMatch = async () => {
       if (!id) return;
@@ -73,14 +186,16 @@ export default function MatchDetailPage() {
           .select(`
             *,
             home_team: teams!matches_home_team_id_fkey ( id, name, shield_url ),
-            away_team: teams!matches_away_team_id_fkey ( id, name, shield_url )
+            away_team: teams!matches_away_team_id_fkey ( id, name, shield_url ),
+            owner: profiles!fk_matches_profiles ( username )
           `)
           .eq('id', Number(id))
           .single();
+        
         if (fetchError) throw fetchError;
-        setMatch(data);
+        setMatch(data as any); 
       } catch (err: any) {
-        console.error("Error cargando o partido:", err);
+        console.error("Erro cargando o partido:", err);
         setError("Non se puido atopar o partido.");
       } finally {
         setLoading(false);
@@ -89,17 +204,21 @@ export default function MatchDetailPage() {
     fetchMatch();
   }, [id]);
 
+  // 4. Carga de datos de participantes e accións
   useEffect(() => {
     const fetchData = async () => {
       if (!match) return;
       setLoadingParticipants(true);
       setLoadingActions(true);
       try {
+        // Carga de participantes
         const { data: participantsData, error: participantsError } = await supabase
           .from('match_participants')
           .select(`*, players ( id, first_name, last_name, number )`)
           .eq('match_id', match.id);
+        
         if (participantsError) throw participantsError;
+        
         setHomeParticipants(
           participantsData.filter(p => p.team_id === match.home_team_id) as ParticipantWithPlayer[]
         );
@@ -108,16 +227,19 @@ export default function MatchDetailPage() {
         );
         setLoadingParticipants(false);
 
+        // Carga de accións
         const { data: actionsData, error: actionsError } = await supabase
           .from('actions')
           .select('*')
           .eq('match_id', match.id);
+        
         if (actionsError) throw actionsError;
+        
         setActions(actionsData || []);
         setLoadingActions(false);
 
       } catch (err: any) {
-        console.error("Error cargando datos del partido:", err);
+        console.error("Erro cargando datos:", err);
         setError("Erro ao cargar os datos do partido.");
       }
     };
@@ -127,42 +249,37 @@ export default function MatchDetailPage() {
     }
   }, [match, showPlayerModal, showActionModal]);
 
-  useEffect(() => {
-    if (!match) return;
-    const homeTeamId = match.home_team_id;
-    const awayTeamId = match.away_team_id;
-    let homeGoals = 0;
-    let homePoints = 0;
-    let awayGoals = 0;
-    let awayPoints = 0;
-    for (const action of actions) {
-      if (action.team_id === homeTeamId) {
+  // 5. Cálculo do marcador
+  const score = useMemo(() => {
+    if (!match) return { home: { goals: 0, points: 0, total: 0 }, away: { goals: 0, points: 0, total: 0 } };
+
+    let homeGoals = 0, homePoints = 0, awayGoals = 0, awayPoints = 0;
+    
+    actions.forEach(action => {
+      if (action.team_id === match.home_team_id) {
         if (action.type === 'gol') homeGoals++;
         if (action.type === 'punto') homePoints++;
-      } else if (action.team_id === awayTeamId) {
+      } else if (action.team_id === match.away_team_id) {
         if (action.type === 'gol') awayGoals++;
         if (action.type === 'punto') awayPoints++;
       }
-    }
-    setScore({
+    });
+
+    return {
       home: { goals: homeGoals, points: homePoints, total: (homeGoals * 3) + homePoints },
       away: { goals: awayGoals, points: awayPoints, total: (awayGoals * 3) + awayPoints }
-    });
+    };
   }, [actions, match]);
+
+  // --- Manexadores de eventos ---
 
   const handleDeleteAction = async (actionId: number) => {
     try {
-      const { error } = await supabase
-        .from('actions')
-        .delete()
-        .eq('id', actionId);
-
+      const { error } = await supabase.from('actions').delete().eq('id', actionId);
       if (error) throw error;
-
       setActions(prev => prev.filter(a => a.id !== actionId));
-
     } catch (err) {
-      console.error("Error ao borrar acción:", err);
+      console.error("Erro borrando acción:", err);
       alert("Non se puido borrar a acción.");
     }
   };
@@ -171,220 +288,116 @@ export default function MatchDetailPage() {
     setModalTeam(team);
     setShowPlayerModal(true);
   };
-  const handleClosePlayerModal = () => {
-    setShowPlayerModal(false);
-    setModalTeam(null);
-  };
 
   const handleLogAction = (type: ActionType, teamId: number) => {
     setActionToLog({ type, teamId, capturedTime: gameTime });
     setShowActionModal(true); 
   };
 
-  if (loading) {
-    return (
-      <div className="text-center py-10 text-gray-400">
-        Cargando datos do partido...
-      </div>
-    );
-  }
+  // --- Renderizado ---
 
-  if (error) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="my-4 p-4 bg-red-900 bg-opacity-50 text-red-300 rounded-md text-center">
-          {error}
-        </div>
-        <div className="text-center mt-4">
-          <Link to="/" className="text-blue-400 hover:text-blue-300">
-            &larr; Volver ao inicio
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const isOwner = match && currentUser && match.created_by === currentUser.id;
 
-  if (!match || !match.home_team || !match.away_team) {
-    return (
-       <div className="text-center py-10 text-gray-400">
-        Partido non atopado ou datos incompletos.
-       </div>
-    );
-  }
+  if (loading) return <div className="text-center py-10 text-gray-400">Cargando datos...</div>;
+  if (error) return <div className="text-center py-10 text-red-400">{error} <Link to="/" className="underline ml-2">Volver</Link></div>;
+  if (!match || !match.home_team || !match.away_team) return null;
 
   const homeTeamName = match.home_team.name;
   const awayTeamName = match.away_team.name;
   const homeShield = match.home_team.shield_url || `https://placehold.co/48x48/374151/FFF?text=${homeTeamName.charAt(0)}`;
   const awayShield = match.away_team.shield_url || `https://placehold.co/48x48/374151/FFF?text=${awayTeamName.charAt(0)}`;
-
-  const AddPlayerButton = ({ onClick }: { onClick: () => void }) => (
-    <button
-      onClick={onClick}
-      className="w-full mt-2 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 rounded-md transition-colors text-white"
-    >
-      + Engadir Xogador
-    </button>
-  );
-
-  const ParticipantList = ({ list }: { list: ParticipantWithPlayer[] }) => (
-    <ul className="space-y-1 text-sm text-gray-300">
-      {loadingParticipants ? (
-        <li className="italic text-gray-500">Cargando...</li>
-      ) : list.length === 0 ? (
-        <li className="italic text-gray-500">Sen xogadores convocados.</li>
-      ) : (
-        list.map(p => (
-          <li key={p.id} className="flex items-center justify-between p-1 rounded hover:bg-gray-700">
-            <span>
-              <span className="font-mono w-6 inline-block text-gray-400">
-                {p.players?.number ? `${p.players.number}.` : '-'}
-              </span>
-              {p.players?.first_name} {p.players?.last_name}
-            </span>
-          </li>
-        ))
-      )}
-    </ul>
-  );
-
-  const currentParticipants = modalTeam?.id === match.home_team_id
-    ? homeParticipants
-    : awayParticipants;
-
-  const existingParticipantIds = currentParticipants.map(p => p.players?.id).filter(Boolean) as number[];
-
-  const GaelicScore = ({ score }: { score: Score }) => (
-    <span className="text-2xl font-bold text-white">
-      {score.goals} - {score.points}
-      <span className="text-lg text-gray-400 font-normal ml-1">({score.total})</span>
-    </span>
-  );
-
-  const getYouTubeEmbedUrl = (url: string | null): string | null => {
-    if (!url) return null;
-    let videoId: string | null = null;
-    const regExp = new RegExp("(?:youtube\\.com\\/(?:[^\\/]+\\/.+\\/|(?:v|e(?:mbed)?)\\/|.*[?&]v=)|youtu\\.be\\/)([^\"&?\\/\\s]{11})", "i");
-    const match = url.match(regExp);
-    if (match && match[1]) {
-      videoId = match[1];
-    }
-    if (videoId && videoId.length === 11) {
-      return `https://www.youtube.com/embed/${videoId}`;
-    }
-    return null;
-  };
-
   const embedUrl = getYouTubeEmbedUrl(match.video_url);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
+      
       <div className="mb-6">
-        <Link to="/" className="text-sm text-blue-400 hover:text-blue-300">
-          &larr; Volver a tódolos partidos
+        <Link to="/" className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
+          <span>←</span> Volver
         </Link>
       </div>
       
-      <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
-        <div className="p-6">
-
-          <div className="flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
-            <div className="flex items-center gap-3 sm:gap-4 order-1 sm:order-1 mb-4 sm:mb-0">
-              <img src={homeShield} alt={homeTeamName} className="w-12 h-12 rounded-full object-cover bg-gray-600"/>
-              <span className="text-2xl font-bold text-white hidden sm:inline">{homeTeamName}</span>
-            </div>
-
-            <div className="order-2 sm:order-2 mx-4 flex items-center gap-3 justify-center min-w-[200px]">
-              {loadingActions ? (
-                <span className="text-lg text-gray-400 animate-pulse">...</span>
-              ) : (
-                <GaelicScore score={score.home} />
-              )}
-              <span className="text-xl text-gray-400">vs</span>
-              {loadingActions ? (
-                <span className="text-lg text-gray-400 animate-pulse">...</span>
-              ) : (
-                <GaelicScore score={score.away} />
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 sm:gap-4 order-3 sm:order-3 mt-4 sm:mt-0">
-              <img src={awayShield} alt={awayTeamName} className="w-12 h-12 rounded-full object-cover bg-gray-600"/>
-              <span className="text-2xl font-bold text-white hidden sm:inline">{awayTeamName}</span>
-            </div>
-          </div>
-          <div className="flex sm:hidden justify-between mt-4 text-center">
-            <span className="text-lg font-semibold text-white w-2/5 truncate">{homeTeamName}</span>
-            <div className="w-1/5"></div>
-            <span className="text-lg font-semibold text-white w-2/5 truncate">{awayTeamName}</span>
-          </div>
+      {/* 1. MARCADOR EN VIVO */}
+      <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden p-6 mb-6 border-b-4 border-blue-600">
+        <div className="flex flex-col sm:flex-row justify-between items-center text-center">
           
-          <div className="border-t border-gray-700 mt-6 pt-6 text-center sm:text-left">
-            <h3 className="text-lg font-semibold text-white mb-3">Detalles do Partido</h3>
-            <div className="space-y-2 text-gray-300">
-              <p>
-                <span className="font-medium text-gray-400 w-28 inline-block">Data:</span> 
-                {new Date(match.match_date).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })}
-              </p>
-              {match.competition && (
-                <p>
-                  <span className="font-medium text-gray-400 w-28 inline-block">Competición:</span> 
-                  {match.competition}
-                </p>
-              )}
-              {match.location && (
-                <p>
-                  <span className="font-medium text-gray-400 w-28 inline-block">Lugar:</span> 
-                  {match.location}
-                </p>
-              )}
+          {/* Equipo Local */}
+          <div className="flex items-center gap-4 mb-4 sm:mb-0 w-1/3 justify-start">
+            <img src={homeShield} alt={homeTeamName} className="w-16 h-16 rounded-full object-cover bg-gray-700 ring-2 ring-gray-600"/>
+            <span className="text-xl sm:text-2xl font-bold text-white hidden sm:block truncate">{homeTeamName}</span>
+          </div>
+
+          {/* Panel Central de Puntuación */}
+          <div className="flex flex-col items-center mx-4 bg-gray-900/50 px-6 py-3 rounded-xl border border-gray-700">
+            <div className="text-3xl sm:text-5xl font-mono font-bold text-white tracking-widest flex items-center gap-4">
+              <span>{score.home.total}</span>
+              <span className="text-gray-600 text-2xl">-</span>
+              <span>{score.away.total}</span>
+            </div>
+            <div className="text-xs text-gray-400 mt-1 uppercase tracking-wide">
+              {score.home.goals}-{score.home.points} <span className="mx-2 text-gray-600">|</span> {score.away.goals}-{score.away.points}
+            </div>
+            <div className="mt-2 px-2 py-0.5 bg-green-900/30 text-green-400 text-xs rounded border border-green-900/50">
+              {isOwner ? 'EN VIVO (EDICIÓN)' : 'MODO ESPECTADOR'}
             </div>
           </div>
-          
-          {embedUrl && (
-            <div className="border-t border-gray-700 mt-6 pt-6">
-              <h3 className="text-lg font-semibold text-white mb-3">Vídeo</h3>
-              <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
-                <iframe 
-                  src={embedUrl}
-                  frameBorder="0" 
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                  allowFullScreen
-                  className="w-full h-full"
-                ></iframe>
-              </div>
-            </div>
-          )}
+
+          {/* Equipo Visitante */}
+          <div className="flex items-center gap-4 mt-4 sm:mt-0 w-1/3 justify-end">
+            <span className="text-xl sm:text-2xl font-bold text-white hidden sm:block truncate text-right">{awayTeamName}</span>
+            <img src={awayShield} alt={awayTeamName} className="w-16 h-16 rounded-full object-cover bg-gray-700 ring-2 ring-gray-600"/>
+          </div>
         </div>
       </div>
 
-      <div className="mt-8 bg-gray-800 rounded-lg shadow-xl p-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-white mb-4">Análise do Partido</h2>
-
-        <div className="border-t border-gray-700 pt-4">
-          <h3 className="text-lg font-semibold text-white mb-3">Convocatoria (Opcional)</h3>
-          <p className="text-sm text-gray-400 mb-4">
-            Rexistra os xogadores que participaron para asignarlles accións.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gray-900 p-4 rounded-lg">
-              <h4 className="font-bold text-white mb-3">{homeTeamName}</h4>
-              <ParticipantList list={homeParticipants} />
-              <AddPlayerButton onClick={() => handleOpenPlayerModal({ id: match.home_team_id, name: homeTeamName })} />
-            </div>
-            <div className="bg-gray-900 p-4 rounded-lg">
-              <h4 className="font-bold text-white mb-3">{awayTeamName}</h4>
-              <ParticipantList list={awayParticipants} />
-              <AddPlayerButton onClick={() => handleOpenPlayerModal({ id: match.away_team_id, name: awayTeamName })} />
-            </div>
+      {/* 2. SECCIÓN DE DETALLES */}
+      <CollapsibleSection title="ℹ️ Detalles do Partido" defaultOpen={false}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-gray-300">
+          <div className="space-y-2">
+            <p><span className="text-gray-500 w-24 inline-block">Data:</span> {new Date(match.match_date).toLocaleString()}</p>
+            <p><span className="text-gray-500 w-24 inline-block">Lugar:</span> {match.location || 'Sen especificar'}</p>
+            <p><span className="text-gray-500 w-24 inline-block">Liga:</span> {match.competition || 'Amigable'}</p>
+            <p><span className="text-gray-500 w-24 inline-block">Creador:</span> {match.owner?.username || 'Descoñecido'}</p>
           </div>
+          {embedUrl && (
+            <div className="aspect-video rounded-lg overflow-hidden bg-black shadow-lg">
+              <iframe src={embedUrl} className="w-full h-full" allowFullScreen title="Video Resumen" />
+            </div>
+          )}
         </div>
+      </CollapsibleSection>
 
+      {/* 3. PANEL DE ACCIÓNS */}
+      <CollapsibleSection title="🎮 Panel de Control" defaultOpen={true} visible={!!isOwner}>
         <ActionPanel 
           onLogAction={handleLogAction}
           homeTeamId={match.home_team_id}
           awayTeamId={match.away_team_id}
         />
+      </CollapsibleSection>
 
+      {/* 4. CONVOCATORIA */}
+      <CollapsibleSection title="📋 Convocatoria" defaultOpen={false}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <TeamParticipantList 
+            list={homeParticipants} 
+            teamName={homeTeamName} 
+            teamId={match.home_team_id} 
+            isOwner={!!isOwner}
+            onManage={handleOpenPlayerModal}
+          />
+          <TeamParticipantList 
+            list={awayParticipants} 
+            teamName={awayTeamName} 
+            teamId={match.away_team_id} 
+            isOwner={!!isOwner}
+            onManage={handleOpenPlayerModal}
+          />
+        </div>
+      </CollapsibleSection>
+
+      {/* 5. HISTORIAL E INFORMES */}
+      <CollapsibleSection title="📜 Rexistro de Eventos" defaultOpen={true}>
         <ActionFeed 
           actions={actions}
           homeTeamId={match.home_team_id}
@@ -393,44 +406,46 @@ export default function MatchDetailPage() {
           awayTeamName={awayTeamName}
           participants={[...homeParticipants, ...awayParticipants]}
           onDeleteAction={handleDeleteAction}
+          readOnly={!isOwner}
         />
-      </div>
+      </CollapsibleSection>
 
-      <FloatingStopwatch 
-        time={gameTime}
-        isRunning={isTimerRunning}
-        onToggle={() => setIsTimerRunning(!isTimerRunning)}
-        onReset={() => {
-          setIsTimerRunning(false);
-          setGameTime(0);
-        }}
-        onAdjust={(seconds) => setGameTime(prev => Math.max(0, prev + seconds))}
-      />
+      {/* 6. CRONÓMETRO*/}
+      {isOwner && (
+        <FloatingStopwatch 
+          time={gameTime}
+          isRunning={isTimerRunning}
+          onToggle={() => setIsTimerRunning(!isTimerRunning)}
+          onReset={() => { setIsTimerRunning(false); setGameTime(0); }}
+          onAdjust={(s) => setGameTime(prev => Math.max(0, prev + s))}
+        />
+      )}
 
-      {showPlayerModal && modalTeam && (
+      {/* MODALES DE XESTIÓN */}
+      {isOwner && showPlayerModal && modalTeam && (
         <AddPlayerModal
           matchId={match.id}
           team={modalTeam}
-          onClose={handleClosePlayerModal}
-          existingParticipantIds={existingParticipantIds}
+          onClose={() => setShowPlayerModal(false)}
+          existingParticipantIds={modalTeam.id === match.home_team_id 
+            ? homeParticipants.map(p => p.player_id) 
+            : awayParticipants.map(p => p.player_id)
+          }
         />
       )}
 
-      {showActionModal && actionToLog && match && (
+      {isOwner && showActionModal && actionToLog && (
         <LogActionModal
           matchId={match.id}
           actionToLog={actionToLog}
-          initialTime={actionToLog.capturedTime} 
-          participants={
-            actionToLog.teamId === match.home_team_id 
-              ? homeParticipants 
-              : awayParticipants
-          }
-          homeTeamName={match.home_team?.name || 'Local'}
-          awayTeamName={match.away_team?.name || 'Visitante'}
+          initialTime={actionToLog.capturedTime}
+          participants={actionToLog.teamId === match.home_team_id ? homeParticipants : awayParticipants}
+          homeTeamName={homeTeamName}
+          awayTeamName={awayTeamName}
           onClose={() => setShowActionModal(false)}
         />
       )}
+
     </div>
   );
 }

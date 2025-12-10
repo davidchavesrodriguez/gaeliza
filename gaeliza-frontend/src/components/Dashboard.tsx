@@ -1,157 +1,173 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import type { Database } from '../types/supabase';
 import MatchForm from './MatchForm';
-import { Link } from 'react-router-dom';
 
 type Match = Database['public']['Tables']['matches']['Row'];
 type Team = Database['public']['Tables']['teams']['Row'];
-type MatchWithTeams = Match & {
+
+// Tipo estendido para incluír datos das táboas relacionadas (JOINs)
+type MatchWithDetails = Match & {
   home_team: Pick<Team, 'id' | 'name' | 'shield_url'> | null;
   away_team: Pick<Team, 'id' | 'name' | 'shield_url'> | null;
+  owner: { username: string } | null;
 };
 
-
+/**
+ * Compoñente Dashboard
+ * Pantalla principal da aplicación. Mostra un panel con todos os partidos rexistrados,
+ * distinguindo visualmente os creados polo usuario actual.
+ */
 export default function Dashboard() {
-  const [loadingData, setLoadingData] = useState(true);
-  const [matches, setMatches] = useState<MatchWithTeams[]>([]);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [showMatchForm, setShowMatchForm] = useState(false);
+  const [matches, setMatches] = useState<MatchWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadMatches();
-  }, []);
+    // 1. Obtemos o usuario actual para identificar a propiedade dos partidos
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    };
+    getUser();
 
-  const loadMatches = async () => {
-    setLoadingData(true);
-    setFetchError(null);
-    try {
-      const { data, error, status } = await supabase
-        .from('matches')
-        .select(`
-                  *,
-                  home_team: teams!matches_home_team_id_fkey ( id, name, shield_url ),
-                  away_team: teams!matches_away_team_id_fkey ( id, name, shield_url )
-  `)
-        .order('match_date', { ascending: false });
+    // 2. Cargamos a lista de partidos con datos relacionados
+    const fetchMatches = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('matches')
+          .select(`
+            *,
+            home_team: teams!matches_home_team_id_fkey ( id, name, shield_url ),
+            away_team: teams!matches_away_team_id_fkey ( id, name, shield_url ),
+            owner: profiles!fk_matches_profiles ( username )
+          `)
+          .order('match_date', { ascending: false });
 
-      if (error && status !== 406) {
-        console.error("Supabase fetch error details:", error);
-        throw new Error(`Error ${error.code}: ${error.message}. ${error.hint ? `Hint: ${error.hint}` : ''}`);
+        if (error) throw error;
+                setMatches((data as any) || []);
+        
+      } catch (error) {
+        console.error('Erro cargando partidos:', error);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      if (data) {
-        setMatches(data);
-      } else {
-        setMatches([]);
-      }
-    } catch (error: any) {
-      console.error('Error cargando partidos:', error);
-      setFetchError('Ups! Non se puideron cargar os partidos');
-    } finally {
-      setLoadingData(false);
-    }
-  };
+    fetchMatches();
+  }, [showCreateModal]);
 
-  const handleNewMatchClick = () => setShowMatchForm(true);
-  const handleFormCancel = () => setShowMatchForm(false);
-  const handleMatchCreated = () => {
-    setShowMatchForm(false);
-    loadMatches();
-  };
+  if (loading) return <div className="text-center py-10 text-gray-400">Cargando partidos...</div>;
 
   return (
-    <>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-gray-800 rounded-lg shadow-xl p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-            <h2 className="text-xl sm:text-2xl font-bold text-white">Últimos Partidos</h2>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      
+      {/* Cabeceira e Botón de Creación */}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-white">Panel de Partidos</h1>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors shadow-lg shadow-blue-900/20"
+        >
+          + Novo Partido
+        </button>
+      </div>
+
+      {/* Grella de Partidos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {matches.map((match) => {
+          const isMyMatch = currentUserId === match.created_by;
+
+          // Clases dinámicas baseadas na propiedade do partido
+          const cardClasses = isMyMatch
+            ? 'bg-gray-800 border-blue-500/60 shadow-blue-900/20 hover:shadow-blue-500/30 hover:border-blue-400'
+            : 'bg-gray-800/60 border-gray-700 hover:border-gray-600 hover:bg-gray-800';
+
+          const headerClasses = isMyMatch 
+            ? 'bg-blue-900/10' 
+            : 'bg-gray-900/30';
+
+          const footerClasses = isMyMatch
+            ? 'bg-gray-900 border-blue-900/30'
+            : 'bg-gray-900/50 border-gray-700';
+
+          return (
+            <Link to={`/match/${match.id}`} key={match.id} className="block group">
+              <div className={`rounded-lg shadow-lg overflow-hidden border transition-all duration-300 ${cardClasses}`}>
+                
+                {/* Cabeceira da Tarxeta*/}
+                <div className={`p-4 flex justify-between items-center ${headerClasses}`}>
+                  <span className={`text-xs font-mono ${isMyMatch ? 'text-blue-300' : 'text-gray-500'}`}>
+                    {new Date(match.match_date).toLocaleDateString()}
+                  </span>
+
+                  {isMyMatch && (
+                    <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm tracking-wide">
+                      Análise propio
+                    </span>
+                  )}
+                </div>
+
+                {/* Contido Principal*/}
+                <div className="p-6 flex items-center justify-between">
+                  {/* Equipo Local */}
+                  <div className="flex flex-col items-center w-1/3">
+                    <div className="w-12 h-12 bg-gray-700 rounded-full mb-2 overflow-hidden flex items-center justify-center shadow-inner">
+                      {match.home_team?.shield_url ? (
+                        <img src={match.home_team.shield_url} alt={match.home_team.name} className="w-full h-full object-cover" />
+                      ) : <span className="text-xl opacity-50">🏠</span>}
+                    </div>
+                    <span className="text-sm text-center text-gray-200 font-medium truncate w-full">{match.home_team?.name}</span>
+                  </div>
+
+                  <span className={`font-bold text-xl ${isMyMatch ? 'text-blue-500' : 'text-gray-600'}`}>VS</span>
+
+                  {/* Equipo Visitante */}
+                  <div className="flex flex-col items-center w-1/3">
+                    <div className="w-12 h-12 bg-gray-700 rounded-full mb-2 overflow-hidden flex items-center justify-center shadow-inner">
+                      {match.away_team?.shield_url ? (
+                        <img src={match.away_team.shield_url} alt={match.away_team.name} className="w-full h-full object-cover" />
+                      ) : <span className="text-xl opacity-50">✈️</span>}
+                    </div>
+                    <span className="text-sm text-center text-gray-200 font-medium truncate w-full">{match.away_team?.name}</span>
+                  </div>
+                </div>
+
+                {/* Pé da Tarxeta */}
+                <div className={`px-4 py-3 border-t flex items-center justify-end ${footerClasses}`}>
+                  <span className={`text-xs group-hover:underline ${isMyMatch ? 'text-blue-400 font-medium' : 'text-gray-500'}`}>
+                    Ver detalles →
+                  </span>
+                </div>
+
+              </div>
+            </Link>
+          );
+        })}
+
+        {/* Estado baleiro */}
+        {matches.length === 0 && (
+          <div className="col-span-full text-center py-16 bg-gray-800/30 rounded-lg border border-dashed border-gray-700">
+            <p className="text-gray-400 mb-2">Non hai partidos rexistrados.</p>
             <button
-              onClick={handleNewMatchClick}
-              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base whitespace-nowrap"
+              onClick={() => setShowCreateModal(true)}
+              className="text-blue-400 hover:text-blue-300 underline text-sm"
             >
-              + Rexistrar novo partido
+              Sé o primeiro en crear un!
             </button>
           </div>
+        )}
+      </div>
 
-          {loadingData && (
-            <div className="text-center py-4 text-gray-400">Cargando partidos...</div>
-          )}
-
-          {fetchError && !loadingData && (
-            <div className="my-4 p-4 bg-red-900 bg-opacity-50 text-red-300 rounded-md text-center">
-              {fetchError}
-            </div>
-          )}
-
-          {!loadingData && !fetchError && matches.length === 0 && (
-            <p className="text-gray-400 text-center py-6">Todavía no has registrado ningún partido. ¡Anímate a añadir el primero!</p>
-          )}
-
-          {!loadingData && !fetchError && matches.length > 0 && (
-            <div className="space-y-4">
-              {matches.map((match) => (
-                <Link
-                  to={`/match/${match.id}`}
-                  key={match.id}
-                  className="block border border-gray-700 rounded-lg p-4 hover:shadow-lg hover:bg-gray-700/[0.5] transition-all duration-200 ease-in-out group"
-                >
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center">
-                    <div className="mb-3 sm:mb-0 flex-grow">
-                      <p className="font-semibold text-lg text-blue-400 flex items-center flex-wrap gap-x-2 gap-y-1">
-                        <span className="flex items-center">
-                          <img
-                            src={match.home_team?.shield_url || `https://placehold.co/24x24/374151/FFF?text=${match.home_team?.name?.charAt(0) ?? 'L'}`}
-                            alt={match.home_team?.name ?? 'Local'}
-                            className="w-6 h-6 rounded-full object-cover mr-2 flex-shrink-0 bg-gray-600"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = `https://placehold.co/24x24/374151/FFF?text=${match.home_team?.name?.charAt(0) ?? 'L'}`;
-                              target.onerror = null;
-                            }}
-                          />
-                          <span>{match.home_team?.name || 'Equipo Local'}</span>
-                        </span>
-                        <span className="text-gray-400 text-sm mx-1">vs</span>
-                        <span className="flex items-center">
-                          <img
-                            src={match.away_team?.shield_url || `https://placehold.co/24x24/374151/FFF?text=${match.away_team?.name?.charAt(0) ?? 'V'}`}
-                            alt={match.away_team?.name ?? 'Visitante'}
-                            className="w-6 h-6 rounded-full object-cover mr-2 flex-shrink-0 bg-gray-600"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = `https://placehold.co/24x24/374151/FFF?text=${match.away_team?.name?.charAt(0) ?? 'V'}`;
-                              target.onerror = null;
-                            }}
-                          />
-                          <span>{match.away_team?.name || 'Equipo Visitante'}</span>
-                        </span>
-                      </p>
-                      <p className="text-sm text-gray-300 mt-1.5 flex items-center flex-wrap gap-x-3 gap-y-1">
-                        <span className="flex items-center"><span className="mr-1">🗓️</span> {new Date(match.match_date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-                        {match.location && <span className="flex items-center"><span className="mr-1">📍</span> {match.location}</span>}
-                      </p>
-                    </div>
-                    {match.competition && (
-                      <span className="self-start sm:self-center mt-2 sm:mt-0 px-3 py-1 bg-gray-600 text-gray-200 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap flex-shrink-0">
-                        {match.competition}
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-
-        </div>
-      </main>
-
-      {showMatchForm && (
-        <MatchForm
-          onMatchCreated={handleMatchCreated}
-          onCancel={handleFormCancel}
+      {/* Modal de creación */}
+      {showCreateModal && (
+        <MatchForm 
+          onMatchCreated={() => setShowCreateModal(false)} 
+          onCancel={() => setShowCreateModal(false)} 
         />
       )}
-    </>
+    </div>
   );
 }

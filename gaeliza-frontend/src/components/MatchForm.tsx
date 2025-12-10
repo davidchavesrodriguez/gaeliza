@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { supabase } from '../supabaseClient';
 import type { Database, Enums } from '../types/supabase';
 
@@ -11,82 +11,82 @@ interface MatchFormProps {
   onCancel: () => void;
 }
 
+/**
+ * Compoñente de formulario para a creación de novos partidos.
+ * Permite seleccionar a categoría (xénero), os equipos correspondentes,
+ * a data, o lugar e outros detalles opcionais.
+ */
 export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) {
 
+  // Estado do formulario
   const [formData, setFormData] = useState<Partial<MatchInsert>>({
     home_team_id: undefined,
     away_team_id: undefined,
-    match_date: new Date().toISOString().slice(0, 16),
+    match_date: new Date().toISOString().slice(0, 16), // Formato datetime-local
     location: '',
     competition: '',
     video_url: '',
   });
 
+  // Estados de control de xénero para filtrado de equipos
   const [homeGender, setHomeGender] = useState<TeamGender | ''>('');
   const [awayGender, setAwayGender] = useState<TeamGender | ''>('');
 
+  // Estados de datos (equipos dispoñibles)
   const [homeTeams, setHomeTeams] = useState<Team[]>([]);
   const [awayTeams, setAwayTeams] = useState<Team[]>([]);
 
-  const [loadingHomeTeams, setLoadingHomeTeams] = useState(false);
-  const [loadingAwayTeams, setLoadingAwayTeams] = useState(false);
-
-  const [loading, setLoading] = useState(false);
+  // Estados de interface (carga e erros)
+  const [loadingTeams, setLoadingTeams] = useState<{ home: boolean; away: boolean }>({ home: false, away: false });
+  const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Función auxiliar para cargar equipos filtrados por xénero desde Supabase.
+   */
+  const fetchTeamsByGender = async (gender: TeamGender, setTeamsCallback: (teams: Team[]) => void, loadingKey: 'home' | 'away') => {
+    setLoadingTeams(prev => ({ ...prev, [loadingKey]: true }));
+    setError(null);
+    try {
+      const { data, error } = await supabase
+        .from('teams')
+        .select('id, name')
+        .eq('gender', gender)
+        .order('name', { ascending: true });
+        
+      if (error) throw error;
+      setTeamsCallback(data || []);
+    } catch (err: any) {
+      console.error(`Erro cargando equipos (${loadingKey}):`, err);
+      setError(`Non se puideron cargar os equipos para a selección ${loadingKey === 'home' ? 'local' : 'visitante'}.`);
+    } finally {
+      setLoadingTeams(prev => ({ ...prev, [loadingKey]: false }));
+    }
+  };
+
+  // Efecto para cargar equipos locais cando cambia o xénero
   useEffect(() => {
-    const loadHomeTeams = async () => {
-      if (!homeGender) {
-        setHomeTeams([]);
-        return;
-      }
-      setLoadingHomeTeams(true);
-      setError(null);
-      try {
-        const { data, error } = await supabase
-          .from('teams')
-          .select('id, name')
-          .eq('gender', homeGender)
-          .order('name', { ascending: true });
-        if (error) throw error;
-        setHomeTeams(data || []);
-      } catch (err: any) {
-        console.error("Error cargando equipos locales:", err);
-        setError("Non se puideron cargar os equipos locais.");
-      } finally {
-        setLoadingHomeTeams(false);
-      }
-    };
-    loadHomeTeams();
+    if (homeGender) {
+      fetchTeamsByGender(homeGender, setHomeTeams, 'home');
+    } else {
+      setHomeTeams([]);
+    }
   }, [homeGender]);
 
+  // Efecto para cargar equipos visitantes cando cambia o xénero
   useEffect(() => {
-    const loadAwayTeams = async () => {
-      if (!awayGender) {
-        setAwayTeams([]);
-        return;
-      }
-      setLoadingAwayTeams(true);
-      setError(null);
-      try {
-        const { data, error } = await supabase
-          .from('teams')
-          .select('id, name')
-          .eq('gender', awayGender)
-          .order('name', { ascending: true });
-        if (error) throw error;
-        setAwayTeams(data || []);
-      } catch (err: any) {
-        console.error("Error cargando equipos visitantes:", err);
-        setError("Non se puideron cargar os equipos visitantes.");
-      } finally {
-        setLoadingAwayTeams(false);
-      }
-    };
-    loadAwayTeams();
+    if (awayGender) {
+      fetchTeamsByGender(awayGender, setAwayTeams, 'away');
+    } else {
+      setAwayTeams([]);
+    }
   }, [awayGender]);
 
-  const handleGenderChange = (e: React.ChangeEvent<HTMLSelectElement>, type: 'home' | 'away') => {
+  /**
+   * Xestiona o cambio de categoría (xénero).
+   * Resetea a selección do equipo correspondente para evitar inconsistencias.
+   */
+  const handleGenderChange = (e: ChangeEvent<HTMLSelectElement>, type: 'home' | 'away') => {
     const newGender = e.target.value as TeamGender;
     if (type === 'home') {
       setHomeGender(newGender);
@@ -97,36 +97,37 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  /**
+   * Xestiona os cambios nos campos xerais do formulario.
+   */
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prevData => ({
-      ...prevData,
-      [name]: (name === 'home_team_id' || name === 'away_team_id')
-        ? (value === '' ? undefined : parseInt(value, 10))
-        : value,
-    }));
+    // Conversión de tipos para os IDs numéricos
+    const processedValue = (name === 'home_team_id' || name === 'away_team_id')
+      ? (value === '' ? undefined : parseInt(value, 10))
+      : value;
+
+    setFormData(prev => ({ ...prev, [name]: processedValue }));
   };
 
+  /**
+   * Envía o formulario para crear o partido na base de datos.
+   * Asocia o partido ao usuario autenticado actual.
+   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setLoadingSubmit(true);
     setError(null);
 
+    // Validación básica
     if (!formData.home_team_id || !formData.away_team_id || !formData.match_date) {
       setError('Os equipos e a data son obrigatorios.');
-      setLoading(false);
+      setLoadingSubmit(false);
       return;
     }
-
-    /*
-    if (formData.home_team_id === formData.away_team_id) {
-      setError('O equipo local e o visitante non poden ser o mesmo.');
-      setLoading(false);
-      return;
-    }
-    */
 
     try {
+      // Obter o usuario actual para o campo created_by
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario non autenticado.');
 
@@ -146,18 +147,20 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
 
       if (insertError) throw insertError;
 
-      alert('¡Partido registrado con éxito!');
+      alert('¡Partido rexistrado con éxito!');
       onMatchCreated();
 
     } catch (err: any) {
-      setError(err.message || 'Error al registrar el partido.');
-      console.error("Error inserting match:", err);
+      setError(err.message || 'Erro ao rexistrar o partido.');
+      console.error("Erro inserindo partido:", err);
     } finally {
-      setLoading(false);
+      setLoadingSubmit(false);
     }
   };
 
+  // Clases CSS comúns para os inputs select
   const selectClassName = "w-full px-3 py-2 border border-gray-700 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50";
+  
   const genderOptions = [
     { value: "masculino", label: "Masculino" },
     { value: "feminino", label: "Feminino" },
@@ -171,6 +174,7 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
 
         <form onSubmit={handleSubmit} className="space-y-4">
 
+          {/* Selección de Categorías */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="home_gender" className="block text-sm font-medium text-gray-300 mb-1">
@@ -211,6 +215,7 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
             </div>
           </div>
 
+          {/* Selección de Equipos */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="home_team_id" className="block text-sm font-medium text-gray-300 mb-1">
@@ -222,11 +227,11 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
                 value={formData.home_team_id ?? ''}
                 onChange={handleChange}
                 required
-                disabled={loadingHomeTeams || !homeGender}
+                disabled={loadingTeams.home || !homeGender}
                 className={selectClassName}
               >
                 <option value="" disabled>
-                  {loadingHomeTeams ? 'Cargando...' : (!homeGender ? 'Elixe categoría' : 'Selecciona equipo')}
+                  {loadingTeams.home ? 'Cargando...' : (!homeGender ? 'Elixe categoría' : 'Selecciona equipo')}
                 </option>
                 {homeTeams.map(team => (
                   <option key={team.id} value={team.id}>{team.name}</option>
@@ -244,11 +249,11 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
                 value={formData.away_team_id ?? ''}
                 onChange={handleChange}
                 required
-                disabled={loadingAwayTeams || !awayGender}
+                disabled={loadingTeams.away || !awayGender}
                 className={selectClassName}
               >
                 <option value="" disabled>
-                  {loadingAwayTeams ? 'Cargando...' : (!awayGender ? 'Elixe categoría' : 'Selecciona equipo')}
+                  {loadingTeams.away ? 'Cargando...' : (!awayGender ? 'Elixe categoría' : 'Selecciona equipo')}
                 </option>
                 {awayTeams.map(team => (
                   <option key={team.id} value={team.id}>{team.name}</option>
@@ -257,6 +262,7 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
             </div>
           </div>
 
+          {/* Data e Hora */}
           <div>
             <label htmlFor="match_date" className="block text-sm font-medium text-gray-300 mb-1">
               Data e Hora*
@@ -272,6 +278,7 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
             />
           </div>
 
+          {/* Campos Opcionais */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="location" className="block text-sm font-medium text-gray-300 mb-1">
@@ -318,33 +325,35 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
             />
           </div>
 
+          {/* Mensaxes de erro */}
           {error && (
             <div className="rounded-md bg-red-900 bg-opacity-50 p-3">
               <p className="text-sm text-red-300">{error}</p>
             </div>
           )}
 
+          {/* Botóns de Acción */}
           <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={onCancel}
-              disabled={loading}
+              disabled={loadingSubmit}
               className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-gray-500 disabled:opacity-50 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={loading || loadingHomeTeams || loadingAwayTeams}
+              disabled={loadingSubmit || loadingTeams.home || loadingTeams.away}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 disabled:opacity-50 transition-colors flex items-center"
             >
-              {loading && (
+              {loadingSubmit && (
                 <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
               )}
-              {loading ? 'Gardando...' : 'Rexistrar Partido'}
+              {loadingSubmit ? 'Gardando...' : 'Rexistrar Partido'}
             </button>
           </div>
         </form>

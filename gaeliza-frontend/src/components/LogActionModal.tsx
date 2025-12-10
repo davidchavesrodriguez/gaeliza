@@ -21,6 +21,10 @@ interface LogActionModalProps {
   initialTime: number;
 }
 
+/**
+ * Configuración dos subtipos dispoñibles para cada tipo de acción.
+ * Define a etiqueta da pregunta e as opcións de resposta.
+ */
 const SUBTYPE_OPTIONS: Partial<Record<ActionType, { label: string, options: string[] }>> = {
   'gol': {
     label: 'Como foi? (Opcional)',
@@ -60,11 +64,34 @@ const SUBTYPE_OPTIONS: Partial<Record<ActionType, { label: string, options: stri
   }
 };
 
-export default function LogActionModal({ matchId, actionToLog, participants, homeTeamName, awayTeamName, onClose, initialTime }: LogActionModalProps) {
+/**
+ * Formatea unha cadea de texto para mostrar (snake_case a Texto Normal).
+ */
+const formatOption = (opt: string) => {
+  const text = opt.replace(/_/g, ' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
+/**
+ * Compoñente modal para o rexistro detallado dunha acción.
+ * Permite ao usuario especificar o xogador, minuto exacto, subtipo da acción,
+ * sancións disciplinarias asociadas e a posición xeográfica no campo.
+ */
+export default function LogActionModal({ 
+  matchId, 
+  actionToLog, 
+  participants, 
+  homeTeamName, 
+  awayTeamName, 
+  onClose, 
+  initialTime 
+}: LogActionModalProps) {
   
+  // Cálculo do tempo inicial baseado no cronómetro global
   const initialMinute = Math.floor(initialTime / 60);
   const initialSecond = initialTime % 60;
 
+  // Estados do formulario
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [minute, setMinute] = useState<string>(initialMinute.toString());
   const [second, setSecond] = useState<string>(initialSecond.toString());
@@ -76,9 +103,12 @@ export default function LogActionModal({ matchId, actionToLog, participants, hom
   const [error, setError] = useState<string | null>(null);
 
   const subtypeConfig = SUBTYPE_OPTIONS[actionToLog.type];
-  
   const canHaveCard = actionToLog.type === 'falta_cometida' || actionToLog.type === 'penalti_cometido';
 
+  /**
+   * Xestiona o envío do formulario e a inserción na base de datos.
+   * Realiza unha dobre inserción se se selecciona un cartón (acción principal + sanción).
+   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -91,16 +121,22 @@ export default function LogActionModal({ matchId, actionToLog, participants, hom
     }
 
     try {
-      const mainAction: ActionInsert = {
+      // Datos comúns para a acción
+      const commonData = {
         match_id: matchId,
         team_id: actionToLog.teamId,
-        type: actionToLog.type,
-        subtype: selectedSubtype || null, 
         minute: parseInt(minute, 10),
         second: second === '' ? 0 : parseInt(second, 10),
         player_id: selectedPlayerId ? parseInt(selectedPlayerId, 10) : null,
         x_position: position?.x ?? null,
         y_position: position?.y ?? null,
+      };
+
+      // 1. Inserir acción principal
+      const mainAction: ActionInsert = {
+        ...commonData,
+        type: actionToLog.type,
+        subtype: selectedSubtype || null, 
       };
 
       const { error: insertError } = await supabase
@@ -109,17 +145,12 @@ export default function LogActionModal({ matchId, actionToLog, participants, hom
 
       if (insertError) throw insertError;
 
+      // 2. Inserir sanción disciplinaria
       if (selectedCard) {
         const cardAction: ActionInsert = {
-          match_id: matchId,
-          team_id: actionToLog.teamId,
+          ...commonData,
           type: selectedCard, 
           subtype: null,
-          minute: parseInt(minute, 10),
-          second: second === '' ? 0 : parseInt(second, 10),
-          player_id: selectedPlayerId ? parseInt(selectedPlayerId, 10) : null,
-          x_position: position?.x ?? null,
-          y_position: position?.y ?? null,
         };
 
         const { error: cardError } = await supabase
@@ -139,15 +170,11 @@ export default function LogActionModal({ matchId, actionToLog, participants, hom
     }
   };
 
-  const formatOption = (opt: string) => {
-    const text = opt.replace(/_/g, ' ');
-    return text.charAt(0).toUpperCase() + text.slice(1);
-  };
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
       <div className="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         
+        {/* Cabeceira do Modal */}
         <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
           <span className="text-gray-400 text-sm uppercase tracking-wider">Rexistrar:</span>
           <span className="capitalize text-blue-400">{actionToLog.type.replace(/_/g, ' ')}</span>
@@ -155,6 +182,7 @@ export default function LogActionModal({ matchId, actionToLog, participants, hom
 
         <form onSubmit={handleSubmit} className="space-y-4">
           
+          {/* Selección de Xogador */}
           <div>
             <label htmlFor="player_select" className="block text-sm font-medium text-gray-300 mb-1">
               Xogador
@@ -178,6 +206,7 @@ export default function LogActionModal({ matchId, actionToLog, participants, hom
             </select>
           </div>
 
+          {/* Selección de Subtipo */}
           {subtypeConfig && (
             <div className="bg-gray-700/30 p-3 rounded-md border border-gray-600/50">
               <label className="block text-sm font-bold text-blue-300 mb-2">
@@ -202,6 +231,7 @@ export default function LogActionModal({ matchId, actionToLog, participants, hom
             </div>
           )}
 
+          {/* Selección de Cartóns */}
           {canHaveCard && (
             <div className="bg-gray-700/30 p-3 rounded-md border border-gray-600/50 mt-2">
               <label className="block text-sm font-bold text-yellow-200 mb-2">
@@ -253,6 +283,7 @@ export default function LogActionModal({ matchId, actionToLog, participants, hom
             </div>
           )}
 
+          {/* Mapa Interactivo */}
           {actionToLog.type !== 'saque_porteria' && (
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -266,6 +297,7 @@ export default function LogActionModal({ matchId, actionToLog, participants, hom
             </div>
           )}
 
+          {/* Entradas de Tempo */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="minute" className="block text-sm font-medium text-gray-300 mb-1">Minuto</label>
@@ -293,6 +325,7 @@ export default function LogActionModal({ matchId, actionToLog, participants, hom
 
           {error && <p className="text-sm text-red-400 bg-red-900/20 p-2 rounded border border-red-900">{error}</p>}
 
+          {/* Botóns de Acción */}
           <div className="flex justify-end space-x-3 pt-2 border-t border-gray-700 mt-4">
             <button
               type="button"
