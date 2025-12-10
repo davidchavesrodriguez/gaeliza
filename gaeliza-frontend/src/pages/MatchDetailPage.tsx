@@ -76,40 +76,50 @@ const CollapsibleSection = ({
 
 /**
  * Compoñente auxiliar para mostrar a lista de convocados dun equipo.
+ * Admite estado de carga.
  */
 const TeamParticipantList = ({ 
   list, 
   teamName, 
   teamId, 
   isOwner, 
+  isLoading,
   onManage 
 }: { 
   list: ParticipantWithPlayer[], 
   teamName: string, 
   teamId: number, 
   isOwner: boolean, 
+  isLoading: boolean,
   onManage: (team: { id: number, name: string }) => void 
 }) => (
   <div className="bg-gray-900 p-4 rounded-lg">
     <h4 className="font-bold text-white mb-3 border-b border-gray-700 pb-2">{teamName}</h4>
-    <ul className="space-y-1 text-sm text-gray-300 mb-4">
-      {list.length === 0 ? (
-        <li className="italic text-gray-500">Sen convocatoria.</li>
-      ) : (
-        list.map(p => (
-          <li key={p.id} className="flex justify-between p-1 hover:bg-gray-800 rounded">
-            <span>
-              <span className="font-mono text-gray-500 w-6 inline-block">{p.players?.number || '-'}</span>
-              {p.players?.first_name} {p.players?.last_name}
-            </span>
-          </li>
-        ))
-      )}
-    </ul>
+    
+    {isLoading ? (
+      <div className="text-sm text-gray-500 italic py-2 animate-pulse">Cargando xogadores...</div>
+    ) : (
+      <ul className="space-y-1 text-sm text-gray-300 mb-4">
+        {list.length === 0 ? (
+          <li className="italic text-gray-500">Sen convocatoria.</li>
+        ) : (
+          list.map(p => (
+            <li key={p.id} className="flex justify-between p-1 hover:bg-gray-800 rounded">
+              <span>
+                <span className="font-mono text-gray-500 w-6 inline-block">{p.players?.number || '-'}</span>
+                {p.players?.first_name} {p.players?.last_name}
+              </span>
+            </li>
+          ))
+        )}
+      </ul>
+    )}
+
     {isOwner && (
       <button
         onClick={() => onManage({ id: teamId, name: teamName })}
         className="w-full py-2 text-sm bg-blue-600/20 text-blue-400 border border-blue-600/50 rounded hover:bg-blue-600 hover:text-white transition-all"
+        disabled={isLoading}
       >
         + Xestionar
       </button>
@@ -147,7 +157,7 @@ export default function MatchDetailPage() {
   const [gameTime, setGameTime] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-  // Estado de usuario
+  // Estado de usuario (Seguridade)
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   // 1. Carga de usuario para verificación de permisos
@@ -204,7 +214,7 @@ export default function MatchDetailPage() {
     fetchMatch();
   }, [id]);
 
-  // 4. Carga de datos de participantes e accións
+  // 4. Carga de datos de participantes e accións)
   useEffect(() => {
     const fetchData = async () => {
       if (!match) return;
@@ -317,7 +327,7 @@ export default function MatchDetailPage() {
         </Link>
       </div>
       
-      {/* 1. MARCADOR EN VIVO */}
+      {/* 1. MARCADOR */}
       <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden p-6 mb-6 border-b-4 border-blue-600">
         <div className="flex flex-col sm:flex-row justify-between items-center text-center">
           
@@ -384,6 +394,7 @@ export default function MatchDetailPage() {
             teamName={homeTeamName} 
             teamId={match.home_team_id} 
             isOwner={!!isOwner}
+            isLoading={loadingParticipants}
             onManage={handleOpenPlayerModal}
           />
           <TeamParticipantList 
@@ -391,6 +402,7 @@ export default function MatchDetailPage() {
             teamName={awayTeamName} 
             teamId={match.away_team_id} 
             isOwner={!!isOwner}
+            isLoading={loadingParticipants}
             onManage={handleOpenPlayerModal}
           />
         </div>
@@ -398,19 +410,23 @@ export default function MatchDetailPage() {
 
       {/* 5. HISTORIAL E INFORMES */}
       <CollapsibleSection title="📜 Rexistro de Eventos" defaultOpen={true}>
-        <ActionFeed 
-          actions={actions}
-          homeTeamId={match.home_team_id}
-          awayTeamId={match.away_team_id}
-          homeTeamName={homeTeamName}
-          awayTeamName={awayTeamName}
-          participants={[...homeParticipants, ...awayParticipants]}
-          onDeleteAction={handleDeleteAction}
-          readOnly={!isOwner}
-        />
+        {loadingActions ? (
+          <div className="text-center text-gray-500 italic py-8 animate-pulse">Cargando eventos do partido...</div>
+        ) : (
+          <ActionFeed 
+            actions={actions}
+            homeTeamId={match.home_team_id}
+            awayTeamId={match.away_team_id}
+            homeTeamName={homeTeamName}
+            awayTeamName={awayTeamName}
+            participants={[...homeParticipants, ...awayParticipants]}
+            onDeleteAction={handleDeleteAction}
+            readOnly={!isOwner}
+          />
+        )}
       </CollapsibleSection>
 
-      {/* 6. CRONÓMETRO*/}
+      {/* 6. CRONÓMETRO */}
       {isOwner && (
         <FloatingStopwatch 
           time={gameTime}
