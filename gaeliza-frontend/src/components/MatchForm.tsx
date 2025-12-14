@@ -19,7 +19,6 @@ interface MatchFormProps {
  */
 export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) {
 
-  // Estado do formulario
   const [formData, setFormData] = useState<Partial<MatchInsert>>({
     home_team_id: undefined,
     away_team_id: undefined,
@@ -29,22 +28,19 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
     video_url: '',
   });
 
-  // Estados de control de xénero para filtrado de equipos
   const [homeGender, setHomeGender] = useState<TeamGender | ''>('');
   const [awayGender, setAwayGender] = useState<TeamGender | ''>('');
 
-  // Estados de datos (equipos dispoñibles)
   const [homeTeams, setHomeTeams] = useState<Team[]>([]);
   const [awayTeams, setAwayTeams] = useState<Team[]>([]);
 
-  // Estados de interface (carga, erros e éxito)
   const [loadingTeams, setLoadingTeams] = useState<{ home: boolean; away: boolean }>({ home: false, away: false });
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   /**
-   * Función auxiliar para cargar equipos filtrados por xénero desde Supabase.
+   * Función para cargar equipos filtrados por xénero desde Supabase.
    */
   const fetchTeamsByGender = async (gender: TeamGender, setTeamsCallback: (teams: Team[]) => void, loadingKey: 'home' | 'away') => {
     setLoadingTeams(prev => ({ ...prev, [loadingKey]: true }));
@@ -66,7 +62,6 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
     }
   };
 
-  // Efecto para cargar equipos locais cando cambia o xénero
   useEffect(() => {
     if (homeGender) {
       fetchTeamsByGender(homeGender, setHomeTeams, 'home');
@@ -75,7 +70,6 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
     }
   }, [homeGender]);
 
-  // Efecto para cargar equipos visitantes cando cambia o xénero
   useEffect(() => {
     if (awayGender) {
       fetchTeamsByGender(awayGender, setAwayTeams, 'away');
@@ -99,12 +93,9 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
     }
   };
 
-  /**
-   * Xestiona os cambios nos campos xerais do formulario.
-   */
+
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    // Conversión de tipos para os IDs numéricos
     const processedValue = (name === 'home_team_id' || name === 'away_team_id')
       ? (value === '' ? undefined : parseInt(value, 10))
       : value;
@@ -122,7 +113,6 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
     setError(null);
     setSuccess(null);
 
-    // Validación básica
     if (!formData.home_team_id || !formData.away_team_id || !formData.match_date) {
       setError('Os equipos e a data son obrigatorios.');
       setLoadingSubmit(false);
@@ -130,7 +120,6 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
     }
 
     try {
-      // Obter o usuario actual
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario non autenticado.');
 
@@ -150,7 +139,6 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
 
       if (insertError) throw insertError;
 
-      // Éxito: mostramos mensaxe e pechamos tras un breve retardo
       setSuccess('Partido rexistrado con éxito! Redirixindo...');
       
       setTimeout(() => {
@@ -160,11 +148,10 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
     } catch (err: any) {
       setError(err.message || 'Erro ao rexistrar o partido.');
       console.error("Erro inserindo partido:", err);
-      setLoadingSubmit(false); // Só paramos o loading se hai erro
+      setLoadingSubmit(false); 
     }
   };
 
-  // Clases CSS comúns para os inputs select
   const selectClassName = "w-full px-3 py-2 border border-gray-700 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50";
   
   const genderOptions = [
@@ -180,7 +167,6 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
 
         <form onSubmit={handleSubmit} className="space-y-4">
 
-          {/* Selección de Categorías */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="home_gender" className="block text-sm font-medium text-gray-300 mb-1">
@@ -221,7 +207,6 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
             </div>
           </div>
 
-          {/* Selección de Equipos */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="home_team_id" className="block text-sm font-medium text-gray-300 mb-1">
@@ -268,7 +253,6 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
             </div>
           </div>
 
-          {/* Data e Hora */}
           <div>
             <label htmlFor="match_date" className="block text-sm font-medium text-gray-300 mb-1">
               Data e Hora*
@@ -284,7 +268,6 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
             />
           </div>
 
-          {/* Campos Opcionais */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="location" className="block text-sm font-medium text-gray-300 mb-1">
@@ -331,7 +314,6 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
             />
           </div>
 
-          {/* Mensaxes de estado */}
           <div className="space-y-2">
             {error && (
               <div className="rounded-md bg-red-900/50 border border-red-800 p-3 animate-in fade-in slide-in-from-top-2">
@@ -348,7 +330,6 @@ export default function MatchForm({ onMatchCreated, onCancel }: MatchFormProps) 
             )}
           </div>
 
-          {/* Botóns de Acción */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700 mt-4">
             <button
               type="button"
