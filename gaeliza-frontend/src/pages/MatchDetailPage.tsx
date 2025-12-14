@@ -221,7 +221,6 @@ export default function MatchDetailPage() {
       setLoadingParticipants(true);
       setLoadingActions(true);
       try {
-        // Carga de participantes
         const { data: participantsData, error: participantsError } = await supabase
           .from('match_participants')
           .select(`*, players ( id, first_name, last_name, number )`)
@@ -237,7 +236,6 @@ export default function MatchDetailPage() {
         );
         setLoadingParticipants(false);
 
-        // Carga de accións
         const { data: actionsData, error: actionsError } = await supabase
           .from('actions')
           .select('*')
@@ -309,7 +307,7 @@ export default function MatchDetailPage() {
   const isOwner = match && currentUser && match.created_by === currentUser.id;
 
   if (loading) return <div className="text-center py-10 text-gray-400">Cargando datos...</div>;
-  if (error) return <div className="text-center py-10 text-red-400">{error} <Link to="/" className="underline ml-2">Volver</Link></div>;
+  if (error) return <div className="text-center py-10 text-red-400">{error} <Link to="/dashboard" className="underline ml-2">Volver</Link></div>;
   if (!match || !match.home_team || !match.away_team) return null;
 
   const homeTeamName = match.home_team.name;
@@ -322,22 +320,19 @@ export default function MatchDetailPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
       
       <div className="mb-6">
-        <Link to="/" className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
+        <Link to="/dashboard" className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
           <span>←</span> Volver
         </Link>
       </div>
       
-      {/* 1. MARCADOR */}
       <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden p-6 mb-6 border-b-4 border-blue-600">
         <div className="flex flex-col sm:flex-row justify-between items-center text-center">
           
-          {/* Equipo Local */}
           <div className="flex items-center gap-4 mb-4 sm:mb-0 w-1/3 justify-start">
             <img src={homeShield} alt={homeTeamName} className="w-16 h-16 rounded-full object-cover bg-gray-700 ring-2 ring-gray-600"/>
             <span className="text-xl sm:text-2xl font-bold text-white hidden sm:block truncate">{homeTeamName}</span>
           </div>
 
-          {/* Panel Central de Puntuación */}
           <div className="flex flex-col items-center mx-4 bg-gray-900/50 px-6 py-3 rounded-xl border border-gray-700">
             <div className="text-3xl sm:text-5xl font-mono font-bold text-white tracking-widest flex items-center gap-4">
               <span>{score.home.total}</span>
@@ -352,7 +347,6 @@ export default function MatchDetailPage() {
             </div>
           </div>
 
-          {/* Equipo Visitante */}
           <div className="flex items-center gap-4 mt-4 sm:mt-0 w-1/3 justify-end">
             <span className="text-xl sm:text-2xl font-bold text-white hidden sm:block truncate text-right">{awayTeamName}</span>
             <img src={awayShield} alt={awayTeamName} className="w-16 h-16 rounded-full object-cover bg-gray-700 ring-2 ring-gray-600"/>
