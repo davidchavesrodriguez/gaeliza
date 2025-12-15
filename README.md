@@ -183,12 +183,3 @@ Para máis detalles, consulta o ficheiro LICENSE na raíz deste repositorio.
 Gaeliza é un proxecto de software libre e toda contribución é benvida. Existen varias formas de axudar:
 - **Probar a app e reportar erros**: Os fallos encontrados poden ser escritos nos *issues* do repositorio ou directamente a min, o autor, mediante os contactos previamente descritos
 - **Novas funcionalidades**: Cres que podes mellorar ou añadir funcións á web? Podes facer un *fork* do repositorio, implementar a mellora nunha nova rama e facer unha *pull request*. Estarei atento a elas!
-
-## Memoria
-
-1. [Estudo preliminar](doc/templates/1_estudo_preliminar.md)
-2. [Análise](doc/templates/2_analise.md)
-3. [Deseño](doc/templates/3_deseno.md)
-4. [Planificación e Orzamento](doc/templates/a3_orzamento.md)
-5. [Codificación e Probas](doc/templates/4_codificacion_probas.md)
-6. [Mantemento](doc/templates/5_manuais.md)
