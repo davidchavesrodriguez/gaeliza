@@ -7,6 +7,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard'; 
 import MatchDetailPage from './pages/MatchDetailPage'; 
 import LandingPage from './pages/LandingPage'; 
+import Slides from './pages/Slides'
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -64,8 +65,8 @@ function App() {
     );
   }
 
-  const showAppChrome = session && user && location.pathname !== '/' && location.pathname !== '/login';
 
+const showAppChrome = session && user && location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/slides';
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans z-50 flex flex-col">
       
@@ -111,6 +112,8 @@ function App() {
           <Route path="/dashboard" element={session ? <Dashboard /> : <Navigate to="/login" replace />} />
           
           <Route path="/match/:id" element={session ? <MatchDetailPage /> : <Navigate to="/login" replace />} />
+
+          <Route path="/slides" element={<Slides />} />
           
           {/* Fallback */}
           <Route 
