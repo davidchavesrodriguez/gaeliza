@@ -7,6 +7,7 @@ import './v2/styles/global.css'
 import './v2/styles/analysis-setup.css'
 import './v2/styles/analysis-workspace.css'
 import './v2/styles/video-sync.css'
+import './v2/styles/tagging.css'
 
 const rootElement = document.getElementById('root')
 
