@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { useAuth } from '../auth/AuthProvider'
+import { useAuth } from '../auth/auth-context'
 
 export function AppShell() {
   const { session, isAnonymous } = useAuth()
@@ -15,10 +15,19 @@ export function AppShell() {
         </NavLink>
 
         <nav className="app-nav" aria-label="Navegación principal">
-          <NavLink to="/app" end>
+          <NavLink
+            to="/app"
+            end
+            className={({ isActive }) => (isActive ? 'active' : undefined)}
+          >
             Inicio
           </NavLink>
-          <NavLink to="/app/new">Novo análise</NavLink>
+          <NavLink
+            to="/app/new"
+            className={({ isActive }) => (isActive ? 'active' : undefined)}
+          >
+            Novo análise
+          </NavLink>
         </nav>
 
         <div className="session-chip" title={session?.user.id}>
