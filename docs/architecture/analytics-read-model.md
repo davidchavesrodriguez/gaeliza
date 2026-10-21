@@ -69,11 +69,38 @@ One row per `analysis_participant`, preserving the historical display snapshot a
 
 Statistics are role-based: shooter, assister, passer, receiver, interceptor, recoverer, turnover player, offender, fouled player, card recipient and kickout taker.
 
+### `analysis_insights`
+
+Insights are deterministic facts, not generated prose. Each row exposes:
+
+- a stable `code`;
+- severity/level;
+- metric value;
+- reference threshold/value;
+- sample size;
+- structured context used to reach the conclusion.
+
+The application translates the code into Galician/Spanish/English copy and can always show the evidence behind it.
+
+Initial rules include:
+
+- official/analytical score mismatch;
+- low/high shot conversion (minimum 5 shots);
+- low pass completion (minimum 10 passes);
+- high intercepted-pass rate (minimum 10 passes);
+- low possession efficiency (minimum 5 possessions);
+- low kickout retention (minimum 5 kickouts);
+- red-card warning.
+
+These thresholds are conservative product defaults, not claims of universal Gaelic-football benchmarks. They can evolve as Gaeliza collects enough real data.
+
 ## Coverage and interpretation
 
 A zero count means "zero captured facts of this type", not necessarily "this never happened in the match". Capture-template coverage must be considered before comparing metrics whose denominator depends on exhaustive tagging, especially passes.
 
 The analysis stores a template configuration snapshot so future reporting can explain that coverage.
+
+Insights must apply minimum sample-size guards where small samples would make a percentage misleading.
 
 ## Performance
 
