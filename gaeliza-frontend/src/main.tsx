@@ -5,6 +5,7 @@ import { AuthProvider } from './v2/auth/AuthProvider'
 import { router } from './v2/app/router'
 import './v2/styles/global.css'
 import './v2/styles/analysis-setup.css'
+import './v2/styles/analysis-workspace.css'
 
 const rootElement = document.getElementById('root')
 
