@@ -1,0 +1,3 @@
+# Minimal Supabase CLI configuration for Gaeliza v2.
+# Optional local service settings use Supabase CLI defaults.
+project_id = "gaeliza"

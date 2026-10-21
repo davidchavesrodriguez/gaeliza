@@ -1,0 +1,4 @@
+-- Gaeliza v2 local development seed.
+--
+-- Intentionally empty for now.
+-- Add only synthetic development data here; never dump real user data into Git.

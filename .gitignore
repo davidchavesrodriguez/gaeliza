@@ -1,5 +1,9 @@
 .env
 
+# Supabase CLI local state
+**/supabase/.temp/
+**/supabase/.branches/
+
 # Created by https://www.toptal.com/developers/gitignore/api/react,git,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=react,git,visualstudiocode
 
@@ -45,7 +49,7 @@ sketch
 # Local History for Visual Studio Code
 .history/
 
-# Built Visual Studio Code Extensions
+# Built Visual StudioCode Extensions
 *.vsix
 
 ### VisualStudioCode Patch ###
