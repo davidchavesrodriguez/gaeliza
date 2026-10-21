@@ -8,11 +8,12 @@ set search_path = ''
 as $$
 declare
     v_event_team_id uuid;
+    v_event_type text;
     v_participant_team_id uuid;
     v_expectation text;
 begin
-    select e.team_id
-      into v_event_team_id
+    select e.team_id, e.event_type
+      into v_event_team_id, v_event_type
       from public.events e
      where e.id = new.event_id
        and e.analysis_id = new.analysis_id;
@@ -34,6 +35,8 @@ begin
     end if;
 
     v_expectation := case
+        when new.role = 'blocker' and v_event_type = 'shot' then 'opponent'
+        when new.role = 'blocker' and v_event_type = 'block' then 'same'
         when new.role in (
             'shooter', 'assister',
             'passer', 'receiver', 'intended_receiver',
@@ -41,7 +44,7 @@ begin
             'duel_winner', 'dribbler',
             'offender', 'card_recipient',
             'kicker', 'target', 'kickout_receiver',
-            'restart_taker', 'blocker',
+            'restart_taker',
             'player_out', 'player_in',
             'goalkeeper_out', 'goalkeeper_in'
         ) then 'same'
@@ -53,7 +56,7 @@ begin
     end;
 
     if v_expectation is null then
-        raise exception 'role % has no participant-team semantic configured', new.role
+        raise exception 'role % has no participant-team semantic configured for event type %', new.role, v_event_type
             using errcode = '23514';
     end if;
 
