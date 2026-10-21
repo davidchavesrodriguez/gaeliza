@@ -77,9 +77,11 @@ export function formatAnalysisClock(totalSeconds: number) {
   const hours = Math.floor(roundedMilliseconds / 3_600_000)
   const minutes = Math.floor((roundedMilliseconds % 3_600_000) / 60_000)
   const seconds = (roundedMilliseconds % 60_000) / 1000
-  const secondsText = Number.isInteger(seconds)
-    ? String(seconds).padStart(2, '0')
-    : seconds.toFixed(3).replace(/0+$/, '').padStart(2, '0')
+  const [wholeSeconds, fractionalSeconds] = seconds.toFixed(3).split('.')
+  const trimmedFraction = fractionalSeconds.replace(/0+$/, '')
+  const secondsText = `${wholeSeconds.padStart(2, '0')}${
+    trimmedFraction ? `.${trimmedFraction}` : ''
+  }`
 
   if (hours > 0) {
     return `${hours}:${String(minutes).padStart(2, '0')}:${secondsText}`
@@ -110,7 +112,18 @@ export function parseAnalysisClock(
     return null
   }
 
-  if (parts.length > 1 && parsed.slice(1).some((part) => part >= 60)) {
+  if (
+    parts.length > 1 &&
+    parsed.slice(0, -1).some((part) => !Number.isInteger(part))
+  ) {
+    return null
+  }
+
+  if (parts.length > 1 && parsed.at(-1)! >= 60) {
+    return null
+  }
+
+  if (parts.length === 3 && parsed[1] >= 60) {
     return null
   }
 
