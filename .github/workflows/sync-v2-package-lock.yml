@@ -38,6 +38,11 @@ jobs:
         working-directory: gaeliza-frontend
         run: npm audit --omit=dev --audit-level=high
 
+      - name: Inspect full dependency audit
+        working-directory: gaeliza-frontend
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
       - name: Lint
         working-directory: gaeliza-frontend
         run: npm run lint
