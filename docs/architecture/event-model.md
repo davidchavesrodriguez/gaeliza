@@ -23,7 +23,8 @@ Examples:
 - card -> card recipient's team;
 - block -> blocking team;
 - restart -> team taking the restart;
-- substitution -> team making the substitution.
+- substitution -> team making the substitution;
+- duel -> team that wins the duel / emerges with possession.
 
 An event may belong to a possession owned by the other team. For example, Team A may have possession while Team B commits a foul. Therefore `events.possession_id` must reference a possession from the same analysis, but `events.team_id` is not required to match `possessions.team_id`.
 
@@ -113,7 +114,13 @@ A possession belongs to exactly one analysis, team and period.
 
 Saved/blocked/post shots do not necessarily end possession. Goals and points do. A miss normally ends possession; an opponent gain ends possession.
 
-The inference algorithm is a separate layer and must obey these canonical-event rules.
+### Manual corrections
+
+The initial v1 inference strategy is deliberately conservative. `rebuild_inferred_possessions(...)` refuses to rebuild an analysis while any `source = 'manual'` possession exists.
+
+This is preferable to silently losing a human correction. A future version may support partial/range-based reinference around locked manual possessions, but that extra complexity is not required for v1.
+
+The inference algorithm is deterministic and must obey the canonical-event rules in this document.
 
 ## Coordinates
 
