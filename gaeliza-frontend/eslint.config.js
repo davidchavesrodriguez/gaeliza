@@ -8,7 +8,11 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   globalIgnores(['dist']),
   {
-    files: ['**/*.{ts,tsx}'],
+    files: [
+      'src/main.tsx',
+      'src/v2/**/*.{ts,tsx}',
+      'vite.config.ts',
+    ],
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,
@@ -16,7 +20,7 @@ export default defineConfig([
       reactRefresh.configs.vite,
     ],
     languageOptions: {
-      ecmaVersion: 2020,
+      ecmaVersion: 2022,
       globals: globals.browser,
     },
   },
