@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
+import { TaggingPanel } from '../components/TaggingPanel'
 import { VideoSetupPanel } from '../components/VideoSetupPanel'
 import {
   addAnalysisVideo,
@@ -21,7 +22,7 @@ import {
 } from '../domain/analysis'
 import { formatMatchDate, type TeamSummary } from '../domain/matches'
 
-type WorkspaceStep = 'roster' | 'video'
+type WorkspaceStep = 'roster' | 'video' | 'tagging'
 
 function TeamRoster({
   team,
@@ -68,9 +69,7 @@ function TeamRoster({
                 className="participant-remove"
                 type="button"
                 disabled={busy}
-                onClick={() => {
-                  onRemoveParticipant(participant)
-                }}
+                onClick={() => onRemoveParticipant(participant)}
               >
                 Quitar
               </button>
@@ -89,9 +88,7 @@ function TeamRoster({
                 type="button"
                 key={player.playerId}
                 disabled={busy}
-                onClick={() => {
-                  onAddPlayer(player)
-                }}
+                onClick={() => onAddPlayer(player)}
               >
                 <span>
                   {player.defaultNumber ? `#${player.defaultNumber} · ` : ''}
@@ -143,7 +140,6 @@ export function AnalysisWorkspacePage() {
             nextWorkspace.homeTeam.id,
             nextWorkspace.awayTeam.id,
           ]
-
           return validTeamIds.includes(current)
             ? current
             : nextWorkspace.awayTeam.id
@@ -235,11 +231,9 @@ export function AnalysisWorkspacePage() {
   }
 
   function handleAddRosterPlayer(player: RosterPlayer) {
-    if (!analysisId) {
-      return
+    if (analysisId) {
+      void runMutation(() => addRosterParticipant(analysisId, player))
     }
-
-    void runMutation(() => addRosterParticipant(analysisId, player))
   }
 
   function handleRemoveParticipant(participant: AnalysisParticipant) {
@@ -333,12 +327,22 @@ export function AnalysisWorkspacePage() {
           className={
             activeStep === 'video'
               ? 'workspace-step workspace-step-active'
-              : 'workspace-step'
+              : activeStep === 'tagging'
+                ? 'workspace-step workspace-step-done'
+                : 'workspace-step'
           }
         >
           3 · Vídeo / directo
         </span>
-        <span className="workspace-step">4 · Tagging</span>
+        <span
+          className={
+            activeStep === 'tagging'
+              ? 'workspace-step workspace-step-active'
+              : 'workspace-step'
+          }
+        >
+          4 · Tagging
+        </span>
       </div>
 
       {error ? (
@@ -348,14 +352,23 @@ export function AnalysisWorkspacePage() {
         </div>
       ) : null}
 
-      {activeStep === 'video' ? (
+      {activeStep === 'tagging' ? (
+        <TaggingPanel
+          workspace={workspace}
+          onBack={() => {
+            setError(null)
+            setActiveStep('video')
+          }}
+          onWorkspaceChanged={() => {
+            setRevision((current) => current + 1)
+          }}
+        />
+      ) : activeStep === 'video' ? (
         <VideoSetupPanel
           workspace={workspace}
           busy={busy}
           onAddVideo={(input) => runMutation(() => addAnalysisVideo(input))}
-          onRemoveVideo={(videoId) =>
-            runMutation(() => removeAnalysisVideo(videoId))
-          }
+          onRemoveVideo={(videoId) => runMutation(() => removeAnalysisVideo(videoId))}
           onSetDirection={(periodId, direction: AttackingDirection) =>
             runMutation(() => setPeriodAttackingDirection(periodId, direction))
           }
@@ -366,6 +379,10 @@ export function AnalysisWorkspacePage() {
           onBack={() => {
             setError(null)
             setActiveStep('roster')
+          }}
+          onContinue={() => {
+            setError(null)
+            setActiveStep('tagging')
           }}
         />
       ) : (
@@ -401,9 +418,7 @@ export function AnalysisWorkspacePage() {
                 <select
                   value={temporaryTeamId}
                   disabled={busy}
-                  onChange={(event) => {
-                    setTemporaryTeamId(event.target.value)
-                  }}
+                  onChange={(event) => setTemporaryTeamId(event.target.value)}
                 >
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>
@@ -421,9 +436,7 @@ export function AnalysisWorkspacePage() {
                   disabled={busy}
                   maxLength={200}
                   placeholder="Ex. #8 ou Dianteiro 12"
-                  onChange={(event) => {
-                    setTemporaryName(event.target.value)
-                  }}
+                  onChange={(event) => setTemporaryName(event.target.value)}
                 />
               </label>
 
@@ -436,9 +449,7 @@ export function AnalysisWorkspacePage() {
                   value={temporaryNumber}
                   disabled={busy}
                   placeholder="8"
-                  onChange={(event) => {
-                    setTemporaryNumber(event.target.value)
-                  }}
+                  onChange={(event) => setTemporaryNumber(event.target.value)}
                 />
               </label>
 
