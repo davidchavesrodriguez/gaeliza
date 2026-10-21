@@ -1,0 +1,72 @@
+name: Refresh v2 runtime dependencies
+
+on:
+  push:
+    branches:
+      - feat/v2
+    paths:
+      - '.github/workflows/refresh-v2-runtime-deps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gaeliza-frontend
+    env:
+      VITE_GAELIZA_V2_SUPABASE_URL: https://example.supabase.co
+      VITE_GAELIZA_V2_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gaeliza-frontend/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Remove unused legacy runtime dependencies
+        run: npm uninstall axios jspdf jspdf-autotable
+
+      - name: Update used v2 runtime dependencies
+        run: npm install @supabase/supabase-js@latest react-router-dom@latest
+
+      - name: Audit production dependencies
+        id: audit
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Build
+        id: build
+        continue-on-error: true
+        run: npm run build
+
+      - name: Upload regenerated manifests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v2-runtime-dependency-refresh
+          path: |
+            gaeliza-frontend/package.json
+            gaeliza-frontend/package-lock.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Fail if validation failed
+        if: steps.audit.outcome != 'success' || steps.lint.outcome != 'success' || steps.build.outcome != 'success'
+        run: exit 1
