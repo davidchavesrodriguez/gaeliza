@@ -10,6 +10,23 @@ When a specific event already describes what physically happened, Gaeliza must n
 
 Derived statistics such as turnovers, recoveries, saves, blocks, scoring and possession changes are computed from the canonical event where possible.
 
+## Event team semantics
+
+`events.team_id` is the team whose action the event primarily describes or credits.
+
+Examples:
+
+- shot -> shooting team;
+- pass -> passing team;
+- recovery -> recovering team;
+- foul -> offending team;
+- card -> card recipient's team;
+- block -> blocking team;
+- restart -> team taking the restart;
+- substitution -> team making the substitution.
+
+An event may belong to a possession owned by the other team. For example, Team A may have possession while Team B commits a foul. Therefore `events.possession_id` must reference a possession from the same analysis, but `events.team_id` is not required to match `possessions.team_id`.
+
 ## Pass interception
 
 If the pass itself is captured, an interception is represented as:
