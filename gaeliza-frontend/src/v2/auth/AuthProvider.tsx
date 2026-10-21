@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -9,19 +7,11 @@ import {
 } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-
-type AuthStatus = 'loading' | 'ready'
-
-type AuthContextValue = {
-  session: Session | null
-  status: AuthStatus
-  error: string | null
-  isAnonymous: boolean
-  ensureGuestSession: () => Promise<Session>
-  signOut: () => Promise<void>
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null)
+import {
+  AuthContext,
+  type AuthContextValue,
+  type AuthStatus,
+} from './auth-context'
 
 let guestSessionPromise: Promise<Session> | null = null
 
@@ -139,14 +129,4 @@ export function AuthProvider({ children }: PropsWithChildren) {
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext)
-
-  if (!context) {
-    throw new Error('useAuth must be used inside AuthProvider.')
-  }
-
-  return context
 }
