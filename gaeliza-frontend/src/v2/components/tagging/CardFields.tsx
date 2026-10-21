@@ -1,24 +1,11 @@
-type Props = {
-  captureDisabled: boolean
-  cardType: string
-  setCardType: (value: string) => void
-}
+import { cardTypes, type DraftOf } from '../../domain/event-capture'
+import { ChoiceField } from './ChoiceField'
 
-export function CardFields({ captureDisabled, cardType, setCardType }: Props) {
-  return (
-            <div className="tagging-detail-grid tagging-detail-grid-single">
-              <label>
-                <span>Tarxeta *</span>
-                <select
-                  value={cardType}
-                  disabled={captureDisabled}
-                  onChange={(event) => setCardType(event.target.value)}
-                >
-                  <option value="yellow">Amarela</option>
-                  <option value="black">Negra</option>
-                  <option value="red">Vermella</option>
-                </select>
-              </label>
-            </div>
-  )
+type Props = { draft: DraftOf<'card'>; disabled: boolean; onChange: (draft: DraftOf<'card'>) => void }
+export function CardFields({ draft, disabled, onChange }: Props) {
+  return <div className="tagging-detail-grid">
+    <ChoiceField label="Tarxeta *" value={draft.detail.card_type} options={cardTypes}
+      labels={{"yellow": "Amarela", "black": "Negra", "red": "Vermella"}}
+      optional={false} disabled={disabled} onChange={(value) => { if (value !== null) onChange({ ...draft, detail: { ...draft.detail, card_type: value } }) }} />
+  </div>
 }

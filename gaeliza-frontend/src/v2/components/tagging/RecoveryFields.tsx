@@ -1,28 +1,11 @@
-type Props = {
-  captureDisabled: boolean
-  recoveryMethod: string
-  setRecoveryMethod: (value: string) => void
-}
+import { recoveryMethods, type DraftOf } from '../../domain/event-capture'
+import { ChoiceField } from './ChoiceField'
 
-export function RecoveryFields({ captureDisabled, recoveryMethod, setRecoveryMethod }: Props) {
-  return (
-            <div className="tagging-detail-grid tagging-detail-grid-single">
-              <label>
-                <span>Tipo de recuperación</span>
-                <select
-                  value={recoveryMethod}
-                  disabled={captureDisabled}
-                  onChange={(event) => setRecoveryMethod(event.target.value)}
-                >
-                  <option value="">Descoñecido</option>
-                  <option value="interception">Intercepción</option>
-                  <option value="tackle">Tackle</option>
-                  <option value="loose_ball">Balón solto</option>
-                  <option value="rebound">Rexeite</option>
-                  <option value="kickout">Saque de porta</option>
-                  <option value="other">Outro</option>
-                </select>
-              </label>
-            </div>
-  )
+type Props = { draft: DraftOf<'recovery'>; disabled: boolean; onChange: (draft: DraftOf<'recovery'>) => void }
+export function RecoveryFields({ draft, disabled, onChange }: Props) {
+  return <div className="tagging-detail-grid">
+    <ChoiceField label="Tipo de recuperación" value={draft.detail.method} options={recoveryMethods}
+      labels={{"interception": "Intercepción", "tackle": "Tackle", "loose_ball": "Balón solto", "rebound": "Rexeite", "kickout": "Saque de porta", "other": "Outro"}}
+      optional={true} disabled={disabled} onChange={(value) => { onChange({ ...draft, detail: { ...draft.detail, method: value } }) }} />
+  </div>
 }

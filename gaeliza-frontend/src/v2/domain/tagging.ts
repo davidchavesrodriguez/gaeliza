@@ -8,6 +8,12 @@ export type QuickEventType =
   | 'card'
   | 'kickout'
   | 'block'
+  | 'pass'
+  | 'duel'
+  | 'dribble'
+  | 'restart'
+  | 'substitution'
+  | 'goalkeeper_change'
 
 export type EventParticipantInput = {
   participantId: string
@@ -31,6 +37,12 @@ export type AnalysisEventSummary = {
   cardType: string | null
   kickoutLength: string | null
   kickoutResult: string | null
+  passResult: string | null
+  passTechnique: string | null
+  duelType: string | null
+  dribbleResult: string | null
+  restartType: string | null
+  participants: { participantId: string; role: string; displayName: string; number: number | null }[]
 }
 
 export type LogQuickEventInput = {
@@ -53,10 +65,23 @@ export const quickEventLabels: Record<QuickEventType, string> = {
   card: 'Tarxeta',
   kickout: 'Saque de porta',
   block: 'Bloqueo',
+  pass: 'Pase',
+  duel: 'Duelo',
+  dribble: 'Regate',
+  restart: 'Reinicio',
+  substitution: 'Substitución',
+  goalkeeper_change: 'Cambio de porteiro',
 }
 
 export function getEventResultLabel(event: AnalysisEventSummary) {
   switch (event.eventType) {
+    case 'pass':
+      return [event.passResult, event.passTechnique].filter(Boolean).join(' · ') || 'pase'
+    case 'duel': return event.duelType ?? 'duelo'
+    case 'dribble': return event.dribbleResult ?? 'regate'
+    case 'restart': return event.restartType ?? 'reinicio'
+    case 'substitution': return replacementLabel(event, 'player_out', 'player_in')
+    case 'goalkeeper_change': return replacementLabel(event, 'goalkeeper_out', 'goalkeeper_in')
     case 'shot':
       return event.shotResult ?? 'tiro'
     case 'recovery':
@@ -72,6 +97,20 @@ export function getEventResultLabel(event: AnalysisEventSummary) {
     default:
       return event.eventType
   }
+}
+
+function replacementLabel(event: AnalysisEventSummary, outRole: string, inRole: string) {
+  const label = (role: string) => {
+    const participant = event.participants.find((p) => p.role === role)
+    if (!participant) return 'Sen identificar'
+    return participant.number !== null ? `#${participant.number}` : participant.displayName
+  }
+  return `${label(outRole)} → ${label(inRole)}`
+}
+
+export function eventTypeLabel(eventType: string) {
+  const entry = Object.entries(quickEventLabels).find(([type]) => type === eventType)
+  return entry?.[1] ?? eventType
 }
 
 export function mapPeriodSecondToVideoSecond(

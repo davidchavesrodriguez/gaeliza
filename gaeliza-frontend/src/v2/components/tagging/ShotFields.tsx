@@ -1,61 +1,16 @@
-type Props = {
-  captureDisabled: boolean
-  shotResult: string
-  shotTechnique: string
-  shotSituation: string
-  setShotResult: (value: string) => void
-  setShotTechnique: (value: string) => void
-  setShotSituation: (value: string) => void
-  setSecondaryParticipantId: (value: string) => void
-}
+import { shotResults, techniques, shotSituations, type DraftOf } from '../../domain/event-capture'
+import { ChoiceField } from './ChoiceField'
 
-export function ShotFields({ captureDisabled, shotResult, shotTechnique, shotSituation, setShotResult, setShotTechnique, setShotSituation, setSecondaryParticipantId }: Props) {
-  return (
-            <div className="tagging-detail-grid">
-              <label>
-                <span>Resultado *</span>
-                <select
-                  value={shotResult}
-                  disabled={captureDisabled}
-                  onChange={(event) => {
-                    setShotResult(event.target.value)
-                    setSecondaryParticipantId('')
-                  }}
-                >
-                  <option value="goal">Gol</option>
-                  <option value="point">Punto</option>
-                  <option value="wide">Fóra</option>
-                  <option value="saved">Parado</option>
-                  <option value="blocked">Bloqueado</option>
-                  <option value="post">Pao</option>
-                </select>
-              </label>
-              <label>
-                <span>Técnica</span>
-                <select
-                  value={shotTechnique}
-                  disabled={captureDisabled}
-                  onChange={(event) => setShotTechnique(event.target.value)}
-                >
-                  <option value="">Descoñecida</option>
-                  <option value="foot">Pé</option>
-                  <option value="hand">Man</option>
-                </select>
-              </label>
-              <label>
-                <span>Situación</span>
-                <select
-                  value={shotSituation}
-                  disabled={captureDisabled}
-                  onChange={(event) => setShotSituation(event.target.value)}
-                >
-                  <option value="">Descoñecida</option>
-                  <option value="open_play">Xogo aberto</option>
-                  <option value="free">Libre</option>
-                  <option value="forty_five">45</option>
-                  <option value="penalty">Penalti</option>
-                </select>
-              </label>
-            </div>
-  )
+type Props = { draft: DraftOf<'shot'>; disabled: boolean; onChange: (draft: DraftOf<'shot'>) => void }
+export function ShotFields({ draft, disabled, onChange }: Props) {
+  return <div className="tagging-detail-grid">
+    <ChoiceField label="Resultado *" value={draft.detail.result} options={shotResults}
+      labels={{"goal": "Gol", "point": "Punto", "wide": "Fóra", "saved": "Parado", "blocked": "Bloqueado", "post": "Pao"}}
+      optional={false} disabled={disabled} onChange={(value) => { if (value !== null) onChange({ ...draft, detail: { ...draft.detail, result: value } }) }} />
+    <ChoiceField label="Técnica" value={draft.detail.technique} options={techniques}
+      labels={{"hand": "Man", "foot": "Pé"}}
+      optional={true} disabled={disabled} onChange={(value) => { onChange({ ...draft, detail: { ...draft.detail, technique: value } }) }} />
+    <ChoiceField label="Situación" value={draft.detail.situation} options={shotSituations} labels={{open_play:"Xogo aberto", free:"Libre", forty_five:"45", penalty:"Penalti"}}
+      optional={true} disabled={disabled} onChange={(value) => { onChange({ ...draft, detail: { ...draft.detail, situation: value } }) }} />
+  </div>
 }

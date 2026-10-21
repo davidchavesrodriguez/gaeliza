@@ -1,14 +1,6 @@
 import { formatAnalysisClock, type AnalysisWorkspace } from '../../domain/analysis'
-import { getEventResultLabel, mapPeriodSecondToVideoSecond, quickEventLabels, type AnalysisEventSummary, type QuickEventType } from '../../domain/tagging'
+import { getEventResultLabel, mapPeriodSecondToVideoSecond, eventTypeLabel, type AnalysisEventSummary } from '../../domain/tagging'
 import { PossessionControls } from './PossessionControls'
-
-function eventTypeLabel(event: AnalysisEventSummary) {
-  if (event.eventType in quickEventLabels) {
-    return quickEventLabels[event.eventType as QuickEventType]
-  }
-
-  return event.eventType
-}
 
 function buildVideoLabel(video: AnalysisWorkspace['videos'][number]) {
   if (video.title) {
@@ -81,7 +73,7 @@ export function TaggingTimeline({ workspace, events, loadingEvents, disabled, on
                     </div>
                     <div className="timeline-event-main">
                       <div>
-                        <strong>{eventTypeLabel(timelineEvent)}</strong>
+                        <strong>{eventTypeLabel(timelineEvent.eventType)}</strong>
                         <span>
                           {team.shortName ?? team.name} · {getEventResultLabel(timelineEvent)}
                         </span>

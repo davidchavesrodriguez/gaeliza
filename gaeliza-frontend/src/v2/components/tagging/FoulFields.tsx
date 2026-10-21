@@ -1,47 +1,12 @@
-type Props = {
-  captureDisabled: boolean
-  foulCause: string
-  foulOutcome: string
-  setFoulCause: (value: string) => void
-  setFoulOutcome: (value: string) => void
-}
+import { foulCauses, foulOutcomes, type DraftOf } from '../../domain/event-capture'
+import { ChoiceField } from './ChoiceField'
 
-export function FoulFields({ captureDisabled, foulCause, foulOutcome, setFoulCause, setFoulOutcome }: Props) {
-  return (
-            <div className="tagging-detail-grid">
-              <label>
-                <span>Causa</span>
-                <select
-                  value={foulCause}
-                  disabled={captureDisabled}
-                  onChange={(event) => setFoulCause(event.target.value)}
-                >
-                  <option value="">Descoñecida</option>
-                  <option value="holding">Agarrón</option>
-                  <option value="striking">Golpe</option>
-                  <option value="obstruction">Obstrución</option>
-                  <option value="pickup">Pickup</option>
-                  <option value="steps">Steps</option>
-                  <option value="push">Empurrón</option>
-                  <option value="trip">Zancadilla</option>
-                  <option value="other">Outra</option>
-                </select>
-              </label>
-              <label>
-                <span>Resultado</span>
-                <select
-                  value={foulOutcome}
-                  disabled={captureDisabled}
-                  onChange={(event) => setFoulOutcome(event.target.value)}
-                >
-                  <option value="">Descoñecido</option>
-                  <option value="free">Libre</option>
-                  <option value="forty_five">45</option>
-                  <option value="penalty">Penalti</option>
-                  <option value="advantage">Vantaxe</option>
-                  <option value="none">Sen continuación</option>
-                </select>
-              </label>
-            </div>
-  )
+type Props = { draft: DraftOf<'foul'>; disabled: boolean; onChange: (draft: DraftOf<'foul'>) => void }
+export function FoulFields({ draft, disabled, onChange }: Props) {
+  return <div className="tagging-detail-grid">
+    <ChoiceField label="Causa" value={draft.detail.cause} options={foulCauses} labels={{holding:"Agarrón", striking:"Golpe", obstruction:"Obstrución", pickup:"Pickup", steps:"Steps", push:"Empurrón", trip:"Zancadilla", other:"Outra"}}
+      optional={true} disabled={disabled} onChange={(value) => { onChange({ ...draft, detail: { ...draft.detail, cause: value } }) }} />
+    <ChoiceField label="Resultado" value={draft.detail.outcome} options={foulOutcomes} labels={{free:"Libre", forty_five:"45", penalty:"Penalti", advantage:"Vantaxe", none:"Sen continuación"}}
+      optional={true} disabled={disabled} onChange={(value) => { onChange({ ...draft, detail: { ...draft.detail, outcome: value } }) }} />
+  </div>
 }

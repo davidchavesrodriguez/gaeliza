@@ -92,10 +92,10 @@ export function TaggingPanel({ workspace, onBack, onWorkspaceChanged }: Props) {
         </button>
         <div className="workspace-next-copy">
           <span className="eyebrow">Tagging v2</span>
-          <strong>Captura rápida conectada ao modelo canónico</strong>
+          <strong>Captura de eventos do partido</strong>
           <small>
-            O modo completo engadirá pases, duelos, edición e ferramentas avanzadas
-            sobre esta mesma base.
+            Os eventos gardados aparecen na timeline. Podes volver á configuración
+            do vídeo cando o necesites.
           </small>
         </div>
       </div>
