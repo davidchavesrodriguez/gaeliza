@@ -2,8 +2,11 @@ import {
   getPlayerDisplayName,
   type AnalysisParticipant,
   type AnalysisPeriod,
+  type AnalysisVideo,
   type AnalysisWorkspace,
+  type AttackingDirection,
   type RosterPlayer,
+  type VideoSyncPoint,
 } from '../domain/analysis'
 import type { TeamSummary } from '../domain/matches'
 import { supabase } from '../lib/supabase'
@@ -61,6 +64,23 @@ type RawRosterPlayer = {
   } | null
 }
 
+type RawVideo = {
+  id: string
+  url: string
+  provider: string | null
+  title: string | null
+  duration_seconds: number | string | null
+  sort_order: number
+}
+
+type RawSyncPoint = {
+  id: string
+  analysis_video_id: string
+  analysis_period_id: string
+  video_second: number | string
+  second_in_period: number
+}
+
 function mapTeam(team: RawTeam): TeamSummary {
   return {
     id: team.id,
@@ -105,6 +125,28 @@ function mapRosterPlayer(membership: RawRosterPlayer): RosterPlayer | null {
     lastName: membership.player.last_name,
     defaultNumber: membership.default_number,
     primaryPosition: membership.player.primary_position,
+  }
+}
+
+function mapVideo(video: RawVideo): AnalysisVideo {
+  return {
+    id: video.id,
+    url: video.url,
+    provider: video.provider,
+    title: video.title,
+    durationSeconds:
+      video.duration_seconds === null ? null : Number(video.duration_seconds),
+    sortOrder: video.sort_order,
+  }
+}
+
+function mapSyncPoint(syncPoint: RawSyncPoint): VideoSyncPoint {
+  return {
+    id: syncPoint.id,
+    videoId: syncPoint.analysis_video_id,
+    periodId: syncPoint.analysis_period_id,
+    videoSecond: Number(syncPoint.video_second),
+    secondInPeriod: syncPoint.second_in_period,
   }
 }
 
@@ -187,16 +229,40 @@ export async function getAnalysisWorkspace(
     .in('team_id', [analysis.match.home_team.id, analysis.match.away_team.id])
     .eq('active', true)
 
+  let videosQuery = supabase
+    .from('analysis_videos')
+    .select('id, url, provider, title, duration_seconds, sort_order')
+    .eq('analysis_id', analysisId)
+    .order('sort_order', { ascending: true })
+
+  let syncPointsQuery = supabase
+    .from('video_sync_points')
+    .select(
+      'id, analysis_video_id, analysis_period_id, video_second, second_in_period',
+    )
+    .eq('analysis_id', analysisId)
+    .order('video_second', { ascending: true })
+
   if (signal) {
     periodsQuery = periodsQuery.abortSignal(signal)
     participantsQuery = participantsQuery.abortSignal(signal)
     rosterQuery = rosterQuery.abortSignal(signal)
+    videosQuery = videosQuery.abortSignal(signal)
+    syncPointsQuery = syncPointsQuery.abortSignal(signal)
   }
 
-  const [periodsResult, participantsResult, rosterResult] = await Promise.all([
+  const [
+    periodsResult,
+    participantsResult,
+    rosterResult,
+    videosResult,
+    syncPointsResult,
+  ] = await Promise.all([
     periodsQuery,
     participantsQuery,
     rosterQuery,
+    videosQuery,
+    syncPointsQuery,
   ])
 
   if (periodsResult.error) {
@@ -211,6 +277,16 @@ export async function getAnalysisWorkspace(
 
   if (rosterResult.error) {
     throw new Error(`Could not load roster: ${rosterResult.error.message}`)
+  }
+
+  if (videosResult.error) {
+    throw new Error(`Could not load videos: ${videosResult.error.message}`)
+  }
+
+  if (syncPointsResult.error) {
+    throw new Error(
+      `Could not load video synchronization: ${syncPointsResult.error.message}`,
+    )
   }
 
   return {
@@ -229,6 +305,10 @@ export async function getAnalysisWorkspace(
     rosterPlayers: (rosterResult.data as unknown as RawRosterPlayer[])
       .map(mapRosterPlayer)
       .filter((player): player is RosterPlayer => player !== null),
+    videos: (videosResult.data as unknown as RawVideo[]).map(mapVideo),
+    syncPoints: (syncPointsResult.data as unknown as RawSyncPoint[]).map(
+      mapSyncPoint,
+    ),
   }
 }
 
@@ -240,6 +320,20 @@ function participantMutationError(message: string, code?: string) {
   if (code === '23503') {
     return new Error(
       'Non podes quitar este participante porque xa está referenciado por eventos do análise.',
+    )
+  }
+
+  return new Error(message)
+}
+
+function videoMutationError(message: string, code?: string) {
+  if (code === '23505') {
+    return new Error('Xa existe un punto de sincronización nese instante do vídeo.')
+  }
+
+  if (code === '23514') {
+    return new Error(
+      'Os datos do vídeo ou da sincronización están fóra dos límites permitidos.',
     )
   }
 
@@ -300,6 +394,94 @@ export async function removeAnalysisParticipant(
   if (error) {
     throw participantMutationError(
       `Could not remove participant: ${error.message}`,
+      error.code,
+    )
+  }
+}
+
+export async function addAnalysisVideo(input: {
+  analysisId: string
+  url: string
+  title: string | null
+  durationSeconds: number | null
+  sortOrder: number
+}): Promise<void> {
+  const { error } = await supabase.from('analysis_videos').insert({
+    analysis_id: input.analysisId,
+    url: input.url.trim(),
+    title: input.title?.trim() || null,
+    duration_seconds: input.durationSeconds,
+    sort_order: input.sortOrder,
+  })
+
+  if (error) {
+    throw videoMutationError(`Could not add video: ${error.message}`, error.code)
+  }
+}
+
+export async function removeAnalysisVideo(videoId: string): Promise<void> {
+  const { error } = await supabase
+    .from('analysis_videos')
+    .delete()
+    .eq('id', videoId)
+
+  if (error) {
+    throw videoMutationError(
+      `Could not remove video: ${error.message}`,
+      error.code,
+    )
+  }
+}
+
+export async function setPeriodAttackingDirection(
+  periodId: string,
+  direction: AttackingDirection,
+): Promise<void> {
+  const { error } = await supabase
+    .from('analysis_periods')
+    .update({ home_attacks_towards: direction })
+    .eq('id', periodId)
+
+  if (error) {
+    throw videoMutationError(
+      `Could not update attacking direction: ${error.message}`,
+      error.code,
+    )
+  }
+}
+
+export async function addVideoSyncPoint(input: {
+  analysisId: string
+  videoId: string
+  periodId: string
+  videoSecond: number
+  secondInPeriod: number
+}): Promise<void> {
+  const { error } = await supabase.from('video_sync_points').insert({
+    analysis_id: input.analysisId,
+    analysis_video_id: input.videoId,
+    analysis_period_id: input.periodId,
+    video_second: input.videoSecond,
+    second_in_period: input.secondInPeriod,
+  })
+
+  if (error) {
+    throw videoMutationError(
+      `Could not add synchronization point: ${error.message}`,
+      error.code,
+    )
+  }
+}
+
+export async function removeVideoSyncPoint(syncPointId: string): Promise<void> {
+  const { error } = await supabase
+    .from('video_sync_points')
+    .delete()
+    .eq('id', syncPointId)
+
+  if (error) {
+    throw videoMutationError(
+      `Could not remove synchronization point: ${error.message}`,
       error.code,
     )
   }
