@@ -1,0 +1,46 @@
+name: Frontend v2
+
+on:
+  push:
+    branches:
+      - feat/v2
+    paths:
+      - 'gaeliza-frontend/**'
+      - '.github/workflows/frontend-v2.yml'
+  pull_request:
+    paths:
+      - 'gaeliza-frontend/**'
+      - '.github/workflows/frontend-v2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gaeliza-frontend
+    env:
+      VITE_GAELIZA_V2_SUPABASE_URL: https://example.supabase.co
+      VITE_GAELIZA_V2_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gaeliza-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
