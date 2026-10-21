@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
+import { TaggingPanel } from '../components/TaggingPanel'
 import { VideoSetupPanel } from '../components/VideoSetupPanel'
 import {
   addAnalysisVideo,
@@ -21,7 +22,7 @@ import {
 } from '../domain/analysis'
 import { formatMatchDate, type TeamSummary } from '../domain/matches'
 
-type WorkspaceStep = 'roster' | 'video'
+type WorkspaceStep = 'roster' | 'video' | 'tagging'
 
 function TeamRoster({
   team,
@@ -109,6 +110,7 @@ function TeamRoster({
 
 export function AnalysisWorkspacePage() {
   const { analysisId } = useParams<{ analysisId: string }>()
+  const readController = useRef<AbortController | null>(null)
   const [workspace, setWorkspace] = useState<AnalysisWorkspace | null>(null)
   const [activeStep, setActiveStep] = useState<WorkspaceStep>('roster')
   const [loading, setLoading] = useState(true)
@@ -127,6 +129,7 @@ export function AnalysisWorkspacePage() {
     }
 
     const controller = new AbortController()
+    readController.current = controller
     let active = true
 
     setLoading(true)
@@ -277,7 +280,7 @@ export function AnalysisWorkspacePage() {
     })
   }
 
-  if (loading && !workspace) {
+  if (loading && (!workspace || workspace.id !== analysisId)) {
     return (
       <div className="centered-panel" aria-live="polite">
         <div className="spinner" aria-hidden="true" />
@@ -286,7 +289,7 @@ export function AnalysisWorkspacePage() {
     )
   }
 
-  if (!workspace) {
+  if (!workspace || workspace.id !== analysisId) {
     return (
       <section className="state-card">
         <span className="eyebrow">Non dispoñible</span>
@@ -333,12 +336,22 @@ export function AnalysisWorkspacePage() {
           className={
             activeStep === 'video'
               ? 'workspace-step workspace-step-active'
-              : 'workspace-step'
+              : activeStep === 'tagging'
+                ? 'workspace-step workspace-step-done'
+                : 'workspace-step'
           }
         >
           3 · Vídeo / directo
         </span>
-        <span className="workspace-step">4 · Tagging</span>
+        <span
+          className={
+            activeStep === 'tagging'
+              ? 'workspace-step workspace-step-active'
+              : 'workspace-step'
+          }
+        >
+          4 · Tagging
+        </span>
       </div>
 
       {error ? (
@@ -348,7 +361,21 @@ export function AnalysisWorkspacePage() {
         </div>
       ) : null}
 
-      {activeStep === 'video' ? (
+      {activeStep === 'tagging' ? (
+        <TaggingPanel
+          key={workspace.id}
+          workspace={workspace}
+          onBack={() => {
+            setError(null)
+            setActiveStep('video')
+          }}
+          onWorkspaceChanged={async () => {
+            const signal = readController.current?.signal
+            const nextWorkspace = await getAnalysisWorkspace(workspace.id, signal)
+            if (!signal?.aborted) setWorkspace(nextWorkspace)
+          }}
+        />
+      ) : activeStep === 'video' ? (
         <VideoSetupPanel
           workspace={workspace}
           busy={busy}
@@ -366,6 +393,10 @@ export function AnalysisWorkspacePage() {
           onBack={() => {
             setError(null)
             setActiveStep('roster')
+          }}
+          onContinue={() => {
+            setError(null)
+            setActiveStep('tagging')
           }}
         />
       ) : (

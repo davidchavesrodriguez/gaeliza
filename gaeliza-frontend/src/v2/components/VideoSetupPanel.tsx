@@ -37,6 +37,7 @@ type VideoSetupPanelProps = {
   onAddSyncPoint: (input: AddSyncPointInput) => Promise<boolean>
   onRemoveSyncPoint: (syncPointId: string) => Promise<boolean>
   onBack: () => void
+  onContinue: () => void
 }
 
 function getVideoLabel(video: AnalysisVideo) {
@@ -80,6 +81,7 @@ export function VideoSetupPanel({
   onAddSyncPoint,
   onRemoveSyncPoint,
   onBack,
+  onContinue,
 }: VideoSetupPanelProps) {
   const [videoUrl, setVideoUrl] = useState('')
   const [videoTitle, setVideoTitle] = useState('')
@@ -515,7 +517,12 @@ export function VideoSetupPanel({
               : 'Vídeo, timeline e eventos canónicos.'}
           </small>
         </div>
-        <button className="button button-primary" type="button" disabled>
+        <button
+          className="button button-primary"
+          type="button"
+          disabled={busy}
+          onClick={onContinue}
+        >
           Comezar tagging
         </button>
       </div>
