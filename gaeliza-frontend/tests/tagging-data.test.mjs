@@ -77,3 +77,39 @@ test('RLS-hidden delete/reopen do not report false success', async () => {
   await assert.rejects(removeAnalysisEvent('missing'), /No row returned/)
   await assert.rejects(reopenAnalysis('missing'), /No row returned/)
 })
+
+test('extended facts map their actual typed details without losing pass result', async () => {
+  respond = () => ({ data: [{ ...fact(0), pass_result: 'intercepted', pass_technique: 'hand', duel_type: 'aerial', dribble_result: 'failed', restart_type: 'sideline' }], error: null })
+  const [event] = await listAnalysisEvents('analysis')
+  assert.equal(event.passResult, 'intercepted'); assert.equal(event.passTechnique, 'hand')
+  assert.equal(event.duelType, 'aerial'); assert.equal(event.dribbleResult, 'failed'); assert.equal(event.restartType, 'sideline')
+})
+test('replacement role lookups are scoped, batched, abortable and use historical analysis snapshots', async () => {
+  calls.length = 0
+  const signal = new AbortController().signal
+  respond = (call) => {
+    assert.equal(call.steps.find(([method]) => method === 'abortSignal')[1], signal)
+    if (call.operation === 'analysis_event_facts') {
+      const [, offset] = call.steps.find(([method]) => method === 'range')
+      return { data: offset === 0 ? Array.from({ length: 500 }, (_, index) => ({ ...fact(index), event_type: 'substitution' })) : [], error: null }
+    }
+    assert.equal(call.operation, 'event_participants')
+    assert.deepEqual(call.steps.find(([method]) => method === 'eq'), ['eq', 'analysis_id', 'analysis'])
+    const ids = call.steps.find(([method]) => method === 'in')[2]
+    assert.ok(ids.length <= 100)
+    return { data: ids.flatMap((event_id) => [
+      { event_id, role: 'player_out', participant: { id: 'temporary-out', number: 8, display_name_snapshot: 'Temporary #8' } },
+      { event_id, role: 'player_in', participant: { id: 'temporary-in', number: 12, display_name_snapshot: 'Temporary #12' } },
+    ]), error: null }
+  }
+  const events = await listAnalysisEvents('analysis', signal)
+  assert.equal(events.length, 500)
+  assert.equal(calls.filter((call) => call.operation === 'event_participants').length, 5)
+  assert.deepEqual(events[0].participants.map((p) => p.number), [8, 12])
+})
+test('a failed role lookup does not publish a partially populated timeline', async () => {
+  respond = (call) => call.operation === 'analysis_event_facts'
+    ? { data: [{ ...fact(0), event_type: 'goalkeeper_change' }], error: null }
+    : { data: null, error: { message: 'role read failed' } }
+  await assert.rejects(listAnalysisEvents('analysis'), /role read failed/)
+})
