@@ -37,6 +37,7 @@ type VideoSetupPanelProps = {
   onAddSyncPoint: (input: AddSyncPointInput) => Promise<boolean>
   onRemoveSyncPoint: (syncPointId: string) => Promise<boolean>
   onBack: () => void
+  onContinue: () => void
 }
 
 function getVideoLabel(video: AnalysisVideo) {
@@ -51,17 +52,9 @@ function getVideoLabel(video: AnalysisVideo) {
   }
 }
 
-function getPeriodLabel(
-  workspace: AnalysisWorkspace,
-  periodId: string,
-) {
+function getPeriodLabel(workspace: AnalysisWorkspace, periodId: string) {
   const period = workspace.periods.find((candidate) => candidate.id === periodId)
-
-  if (!period) {
-    return 'Período descoñecido'
-  }
-
-  return period.name ?? `Período ${period.number}`
+  return period?.name ?? (period ? `Período ${period.number}` : 'Período descoñecido')
 }
 
 function getVideoForSyncPoint(
@@ -80,6 +73,7 @@ export function VideoSetupPanel({
   onAddSyncPoint,
   onRemoveSyncPoint,
   onBack,
+  onContinue,
 }: VideoSetupPanelProps) {
   const [videoUrl, setVideoUrl] = useState('')
   const [videoTitle, setVideoTitle] = useState('')
@@ -91,30 +85,25 @@ export function VideoSetupPanel({
   const [localError, setLocalError] = useState<string | null>(null)
 
   useEffect(() => {
-    setSyncVideoId((current) => {
-      if (workspace.videos.some((video) => video.id === current)) {
-        return current
-      }
-
-      return workspace.videos[0]?.id ?? ''
-    })
+    setSyncVideoId((current) =>
+      workspace.videos.some((video) => video.id === current)
+        ? current
+        : (workspace.videos[0]?.id ?? ''),
+    )
   }, [workspace.videos])
 
   useEffect(() => {
-    setSyncPeriodId((current) => {
-      if (workspace.periods.some((period) => period.id === current)) {
-        return current
-      }
-
-      return workspace.periods[0]?.id ?? ''
-    })
+    setSyncPeriodId((current) =>
+      workspace.periods.some((period) => period.id === current)
+        ? current
+        : (workspace.periods[0]?.id ?? ''),
+    )
   }, [workspace.periods])
 
   const selectedVideo = useMemo(
     () => workspace.videos.find((video) => video.id === syncVideoId) ?? null,
     [syncVideoId, workspace.videos],
   )
-
   const selectedPeriod = useMemo(
     () => workspace.periods.find((period) => period.id === syncPeriodId) ?? null,
     [syncPeriodId, workspace.periods],
@@ -125,17 +114,14 @@ export function VideoSetupPanel({
     setLocalError(null)
 
     const url = videoUrl.trim()
-
     if (!isSafeHttpUrl(url)) {
       setLocalError('Introduce unha URL http ou https válida para o vídeo.')
       return
     }
 
     let durationSeconds: number | null = null
-
     if (videoDuration.trim()) {
       durationSeconds = parseAnalysisClock(videoDuration)
-
       if (durationSeconds === null || durationSeconds <= 0) {
         setLocalError(
           'A duración debe ser un tempo válido, por exemplo 72:30 ou 4350.',
@@ -144,7 +130,7 @@ export function VideoSetupPanel({
       }
     }
 
-    const nextSortOrder =
+    const sortOrder =
       workspace.videos.reduce(
         (highest, video) => Math.max(highest, video.sortOrder),
         -1,
@@ -155,7 +141,7 @@ export function VideoSetupPanel({
       url,
       title: videoTitle.trim() || null,
       durationSeconds,
-      sortOrder: nextSortOrder,
+      sortOrder,
     })
 
     if (saved) {
@@ -226,9 +212,8 @@ export function VideoSetupPanel({
             <span className="eyebrow">Orientación</span>
             <h2>Indica cara onde ataca o equipo local</h2>
             <p>
-              Só o usamos para normalizar mapas e heatmaps. As coordenadas raw non
-              se modifican nunca; o visitante interprétase automaticamente na
-              dirección contraria.
+              Só se usa para normalizar mapas e heatmaps. As coordenadas raw non se
+              modifican e o visitante interprétase na dirección contraria.
             </p>
           </div>
         </div>
@@ -242,7 +227,6 @@ export function VideoSetupPanel({
                   Duración prevista · {formatAnalysisClock(period.expectedDurationSeconds)}
                 </small>
               </div>
-
               <select
                 aria-label={`Dirección do ${period.name ?? `período ${period.number}`}`}
                 value={period.homeAttacksTowards ?? ''}
@@ -251,7 +235,6 @@ export function VideoSetupPanel({
                   const value = event.target.value
                   const direction: AttackingDirection =
                     value === 'left' || value === 'right' ? value : null
-
                   void onSetDirection(period.id, direction)
                 }}
               >
@@ -270,8 +253,8 @@ export function VideoSetupPanel({
             <span className="eyebrow">Vídeo</span>
             <h2>Fontes do análise</h2>
             <p>
-              Podes usar un ou varios vídeos. En directo é opcional: engádeo máis
-              tarde se queres enriquecer o tagging desde gravación.
+              Podes usar un ou varios vídeos. En directo é opcional e pódese engadir
+              a gravación máis tarde.
             </p>
           </div>
           <span className="badge">{workspace.videos.length} vídeos</span>
@@ -296,9 +279,7 @@ export function VideoSetupPanel({
                   className="participant-remove"
                   type="button"
                   disabled={busy}
-                  onClick={() => {
-                    void onRemoveVideo(video.id)
-                  }}
+                  onClick={() => void onRemoveVideo(video.id)}
                 >
                   Quitar
                 </button>
@@ -308,10 +289,7 @@ export function VideoSetupPanel({
         ) : (
           <div className="empty-state compact-empty-state">
             <strong>Aínda non hai vídeo.</strong>
-            <p>
-              Podes continuar preparando o análise e engadilo cando dispoñas da
-              gravación.
-            </p>
+            <p>Podes continuar e engadilo cando dispoñas da gravación.</p>
           </div>
         )}
 
@@ -324,12 +302,9 @@ export function VideoSetupPanel({
               disabled={busy}
               maxLength={2048}
               placeholder="https://…"
-              onChange={(event) => {
-                setVideoUrl(event.target.value)
-              }}
+              onChange={(event) => setVideoUrl(event.target.value)}
             />
           </label>
-
           <label>
             <span>Título</span>
             <input
@@ -338,12 +313,9 @@ export function VideoSetupPanel({
               disabled={busy}
               maxLength={200}
               placeholder="Cámara principal"
-              onChange={(event) => {
-                setVideoTitle(event.target.value)
-              }}
+              onChange={(event) => setVideoTitle(event.target.value)}
             />
           </label>
-
           <label>
             <span>Duración</span>
             <input
@@ -352,12 +324,9 @@ export function VideoSetupPanel({
               disabled={busy}
               inputMode="decimal"
               placeholder="72:30"
-              onChange={(event) => {
-                setVideoDuration(event.target.value)
-              }}
+              onChange={(event) => setVideoDuration(event.target.value)}
             />
           </label>
-
           <button
             className="button button-secondary"
             type="submit"
@@ -374,8 +343,8 @@ export function VideoSetupPanel({
             <span className="eyebrow">Sincronización</span>
             <h2>Relaciona o reloxo do vídeo co reloxo do partido</h2>
             <p>
-              Con varios puntos Gaeliza poderá calcular o instante do vídeo sen
-              duplicalo en cada evento e tolerar gravacións con cortes ou drift.
+              Varios puntos permiten calcular o instante do vídeo sen duplicalo en
+              cada evento e tolerar cortes ou drift.
             </p>
           </div>
           <span className="badge">{workspace.syncPoints.length} puntos</span>
@@ -385,7 +354,6 @@ export function VideoSetupPanel({
           <div className="sync-list">
             {workspace.syncPoints.map((syncPoint) => {
               const video = getVideoForSyncPoint(workspace, syncPoint)
-
               return (
                 <div className="sync-row" key={syncPoint.id}>
                   <div>
@@ -400,9 +368,7 @@ export function VideoSetupPanel({
                     className="participant-remove"
                     type="button"
                     disabled={busy}
-                    onClick={() => {
-                      void onRemoveSyncPoint(syncPoint.id)
-                    }}
+                    onClick={() => void onRemoveSyncPoint(syncPoint.id)}
                   >
                     Quitar
                   </button>
@@ -419,9 +385,7 @@ export function VideoSetupPanel({
               <select
                 value={syncVideoId}
                 disabled={busy}
-                onChange={(event) => {
-                  setSyncVideoId(event.target.value)
-                }}
+                onChange={(event) => setSyncVideoId(event.target.value)}
               >
                 {workspace.videos.map((video) => (
                   <option key={video.id} value={video.id}>
@@ -430,15 +394,12 @@ export function VideoSetupPanel({
                 ))}
               </select>
             </label>
-
             <label>
               <span>Período</span>
               <select
                 value={syncPeriodId}
                 disabled={busy}
-                onChange={(event) => {
-                  setSyncPeriodId(event.target.value)
-                }}
+                onChange={(event) => setSyncPeriodId(event.target.value)}
               >
                 {workspace.periods.map((period) => (
                   <option key={period.id} value={period.id}>
@@ -447,7 +408,6 @@ export function VideoSetupPanel({
                 ))}
               </select>
             </label>
-
             <label>
               <span>Tempo no vídeo</span>
               <input
@@ -456,12 +416,9 @@ export function VideoSetupPanel({
                 disabled={busy}
                 inputMode="decimal"
                 placeholder="2:05.250"
-                onChange={(event) => {
-                  setSyncVideoTime(event.target.value)
-                }}
+                onChange={(event) => setSyncVideoTime(event.target.value)}
               />
             </label>
-
             <label>
               <span>Tempo no período</span>
               <input
@@ -470,12 +427,9 @@ export function VideoSetupPanel({
                 disabled={busy}
                 inputMode="numeric"
                 placeholder="0:00"
-                onChange={(event) => {
-                  setSyncPeriodTime(event.target.value)
-                }}
+                onChange={(event) => setSyncPeriodTime(event.target.value)}
               />
             </label>
-
             <button
               className="button button-secondary"
               type="submit"
@@ -515,7 +469,12 @@ export function VideoSetupPanel({
               : 'Vídeo, timeline e eventos canónicos.'}
           </small>
         </div>
-        <button className="button button-primary" type="button" disabled>
+        <button
+          className="button button-primary"
+          type="button"
+          disabled={busy}
+          onClick={onContinue}
+        >
           Comezar tagging
         </button>
       </div>
