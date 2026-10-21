@@ -138,13 +138,13 @@ export async function getAnalysisWorkspace(
       )
     `)
     .eq('id', analysisId)
-    .maybeSingle()
 
   if (signal) {
     analysisQuery = analysisQuery.abortSignal(signal)
   }
 
-  const { data: analysisData, error: analysisError } = await analysisQuery
+  const { data: analysisData, error: analysisError } =
+    await analysisQuery.maybeSingle()
 
   if (analysisError) {
     throw new Error(`Could not load analysis: ${analysisError.message}`)
@@ -237,6 +237,12 @@ function participantMutationError(message: string, code?: string) {
     return new Error('Ese xogador xa está na convocatoria deste análise.')
   }
 
+  if (code === '23503') {
+    return new Error(
+      'Non podes quitar este participante porque xa está referenciado por eventos do análise.',
+    )
+  }
+
   return new Error(message)
 }
 
@@ -292,6 +298,9 @@ export async function removeAnalysisParticipant(
     .eq('id', participantId)
 
   if (error) {
-    throw new Error(`Could not remove participant: ${error.message}`)
+    throw participantMutationError(
+      `Could not remove participant: ${error.message}`,
+      error.code,
+    )
   }
 }
