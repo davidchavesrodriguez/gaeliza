@@ -1,0 +1,234 @@
+.analysis-setup {
+  display: grid;
+  gap: 1rem;
+}
+
+.section-heading-inline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.section-heading-inline h2 {
+  margin-bottom: 0;
+}
+
+.match-list {
+  display: grid;
+  gap: 0.75rem;
+  max-height: 520px;
+  overflow-y: auto;
+  padding: 0.15rem;
+}
+
+.match-card {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  text-align: left;
+  color: var(--ink);
+  background: #fbfcfa;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.match-card:hover {
+  transform: translateY(-1px);
+  border-color: #b7c8bb;
+}
+
+.match-card-selected {
+  border-color: #71ad87;
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 2px rgba(20, 107, 67, 0.08);
+}
+
+.match-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.match-card-meta .badge {
+  padding: 0.28rem 0.5rem;
+  background: var(--surface-muted);
+}
+
+.match-card-selected .match-card-meta .badge {
+  background: rgba(255, 255, 255, 0.64);
+}
+
+.match-card-teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  font-size: 1.06rem;
+}
+
+.match-card-teams strong:last-child {
+  text-align: right;
+}
+
+.match-card-versus {
+  color: #8a968e;
+  font-size: 0.75rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.match-card-date {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.mode-card {
+  position: relative;
+  display: flex;
+  gap: 0.75rem;
+  min-height: 150px;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1rem;
+  background: #fbfcfa;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.mode-card:hover {
+  border-color: #b7c8bb;
+}
+
+.mode-card-selected {
+  border-color: #71ad87;
+  background: var(--accent-soft);
+}
+
+.mode-card input {
+  margin-top: 0.2rem;
+  accent-color: var(--accent);
+}
+
+.mode-card span {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+}
+
+.mode-card small {
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.inline-loading,
+.empty-state {
+  display: flex;
+  min-height: 140px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.inline-loading .spinner {
+  width: 1.3rem;
+  height: 1.3rem;
+  margin: 0;
+  border-width: 2px;
+}
+
+.empty-state {
+  flex-direction: column;
+  border: 1px dashed #c8d1c9;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  background: #f9faf7;
+}
+
+.empty-state p {
+  max-width: 560px;
+  margin-bottom: 0;
+}
+
+.form-error {
+  display: grid;
+  gap: 0.3rem;
+  border: 1px solid #e5b8b3;
+  border-radius: 1rem;
+  padding: 0.9rem 1rem;
+  color: #7a2921;
+  background: #fff1ef;
+}
+
+.form-error span {
+  font-size: 0.88rem;
+}
+
+.form-actions {
+  position: sticky;
+  z-index: 10;
+  bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(217, 225, 217, 0.9);
+  border-radius: 1.2rem;
+  padding: 0.9rem 1rem;
+  backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow);
+}
+
+.selection-summary {
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.form-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+}
+
+@media (max-width: 700px) {
+  .mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .match-card-teams {
+    font-size: 0.94rem;
+  }
+
+  .form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .form-actions .button {
+    width: 100%;
+  }
+}
