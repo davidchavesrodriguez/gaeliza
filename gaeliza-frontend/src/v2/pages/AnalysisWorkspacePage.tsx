@@ -1,18 +1,27 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
+import { VideoSetupPanel } from '../components/VideoSetupPanel'
 import {
+  addAnalysisVideo,
   addRosterParticipant,
   addTemporaryParticipant,
+  addVideoSyncPoint,
   getAnalysisWorkspace,
   removeAnalysisParticipant,
+  removeAnalysisVideo,
+  removeVideoSyncPoint,
+  setPeriodAttackingDirection,
 } from '../data/analysis-workspace'
 import {
   getPlayerDisplayName,
   type AnalysisParticipant,
   type AnalysisWorkspace,
+  type AttackingDirection,
   type RosterPlayer,
 } from '../domain/analysis'
 import { formatMatchDate, type TeamSummary } from '../domain/matches'
+
+type WorkspaceStep = 'roster' | 'video'
 
 function TeamRoster({
   team,
@@ -101,6 +110,7 @@ function TeamRoster({
 export function AnalysisWorkspacePage() {
   const { analysisId } = useParams<{ analysisId: string }>()
   const [workspace, setWorkspace] = useState<AnalysisWorkspace | null>(null)
+  const [activeStep, setActiveStep] = useState<WorkspaceStep>('roster')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -204,19 +214,21 @@ export function AnalysisWorkspacePage() {
     return groups
   }, [workspace])
 
-  async function runMutation(action: () => Promise<void>) {
+  async function runMutation(action: () => Promise<void>): Promise<boolean> {
     setBusy(true)
     setError(null)
 
     try {
       await action()
       setRevision((current) => current + 1)
+      return true
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : 'Non puidemos actualizar a convocatoria.',
+          : 'Non puidemos actualizar o análise.',
       )
+      return false
     } finally {
       setBusy(false)
     }
@@ -308,8 +320,24 @@ export function AnalysisWorkspacePage() {
 
       <div className="workspace-step-strip" aria-label="Preparación do análise">
         <span className="workspace-step workspace-step-done">1 · Partido</span>
-        <span className="workspace-step workspace-step-active">2 · Convocatoria</span>
-        <span className="workspace-step">3 · Vídeo / directo</span>
+        <span
+          className={
+            activeStep === 'roster'
+              ? 'workspace-step workspace-step-active'
+              : 'workspace-step workspace-step-done'
+          }
+        >
+          2 · Convocatoria
+        </span>
+        <span
+          className={
+            activeStep === 'video'
+              ? 'workspace-step workspace-step-active'
+              : 'workspace-step'
+          }
+        >
+          3 · Vídeo / directo
+        </span>
         <span className="workspace-step">4 · Tagging</span>
       </div>
 
@@ -320,97 +348,129 @@ export function AnalysisWorkspacePage() {
         </div>
       ) : null}
 
-      <div className="roster-grid">
-        {teams.map((team) => (
-          <TeamRoster
-            key={team.id}
-            team={team}
-            participants={participantsByTeam.get(team.id) ?? []}
-            availablePlayers={availablePlayersByTeam.get(team.id) ?? []}
-            busy={busy}
-            onAddPlayer={handleAddRosterPlayer}
-            onRemoveParticipant={handleRemoveParticipant}
-          />
-        ))}
-      </div>
+      {activeStep === 'video' ? (
+        <VideoSetupPanel
+          workspace={workspace}
+          busy={busy}
+          onAddVideo={(input) => runMutation(() => addAnalysisVideo(input))}
+          onRemoveVideo={(videoId) =>
+            runMutation(() => removeAnalysisVideo(videoId))
+          }
+          onSetDirection={(periodId, direction: AttackingDirection) =>
+            runMutation(() => setPeriodAttackingDirection(periodId, direction))
+          }
+          onAddSyncPoint={(input) => runMutation(() => addVideoSyncPoint(input))}
+          onRemoveSyncPoint={(syncPointId) =>
+            runMutation(() => removeVideoSyncPoint(syncPointId))
+          }
+          onBack={() => {
+            setError(null)
+            setActiveStep('roster')
+          }}
+        />
+      ) : (
+        <>
+          <div className="roster-grid">
+            {teams.map((team) => (
+              <TeamRoster
+                key={team.id}
+                team={team}
+                participants={participantsByTeam.get(team.id) ?? []}
+                availablePlayers={availablePlayersByTeam.get(team.id) ?? []}
+                busy={busy}
+                onAddPlayer={handleAddRosterPlayer}
+                onRemoveParticipant={handleRemoveParticipant}
+              />
+            ))}
+          </div>
 
-      <section className="state-card temporary-player-card">
-        <div>
-          <span className="eyebrow">Identidade temporal</span>
-          <h2>Engade un rival sen crear un xogador global</h2>
-          <p>
-            Útil cando só coñeces o dorsal ou un nome provisional. Poderás ligar
-            esta identidade a un xogador persistente máis adiante sen perder os
-            eventos rexistrados.
-          </p>
-        </div>
+          <section className="state-card temporary-player-card">
+            <div>
+              <span className="eyebrow">Identidade temporal</span>
+              <h2>Engade un rival sen crear un xogador global</h2>
+              <p>
+                Útil cando só coñeces o dorsal ou un nome provisional. Poderás ligar
+                esta identidade a un xogador persistente máis adiante sen perder os
+                eventos rexistrados.
+              </p>
+            </div>
 
-        <form className="temporary-player-form" onSubmit={handleAddTemporary}>
-          <label>
-            <span>Equipo</span>
-            <select
-              value={temporaryTeamId}
+            <form className="temporary-player-form" onSubmit={handleAddTemporary}>
+              <label>
+                <span>Equipo</span>
+                <select
+                  value={temporaryTeamId}
+                  disabled={busy}
+                  onChange={(event) => {
+                    setTemporaryTeamId(event.target.value)
+                  }}
+                >
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span>Nome ou etiqueta</span>
+                <input
+                  type="text"
+                  value={temporaryName}
+                  disabled={busy}
+                  maxLength={200}
+                  placeholder="Ex. #8 ou Dianteiro 12"
+                  onChange={(event) => {
+                    setTemporaryName(event.target.value)
+                  }}
+                />
+              </label>
+
+              <label>
+                <span>Dorsal</span>
+                <input
+                  type="number"
+                  min="1"
+                  inputMode="numeric"
+                  value={temporaryNumber}
+                  disabled={busy}
+                  placeholder="8"
+                  onChange={(event) => {
+                    setTemporaryNumber(event.target.value)
+                  }}
+                />
+              </label>
+
+              <button
+                className="button button-secondary"
+                type="submit"
+                disabled={busy || !temporaryName.trim()}
+              >
+                {busy ? 'Gardando…' : 'Engadir temporal'}
+              </button>
+            </form>
+          </section>
+
+          <div className="workspace-next-card">
+            <div>
+              <span className="eyebrow">Seguinte</span>
+              <strong>Vídeo, sincronización e orientación do campo</strong>
+            </div>
+            <button
+              className="button button-primary"
+              type="button"
               disabled={busy}
-              onChange={(event) => {
-                setTemporaryTeamId(event.target.value)
+              onClick={() => {
+                setError(null)
+                setActiveStep('video')
               }}
             >
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <span>Nome ou etiqueta</span>
-            <input
-              type="text"
-              value={temporaryName}
-              disabled={busy}
-              maxLength={200}
-              placeholder="Ex. #8 ou Dianteiro 12"
-              onChange={(event) => {
-                setTemporaryName(event.target.value)
-              }}
-            />
-          </label>
-
-          <label>
-            <span>Dorsal</span>
-            <input
-              type="number"
-              min="1"
-              inputMode="numeric"
-              value={temporaryNumber}
-              disabled={busy}
-              placeholder="8"
-              onChange={(event) => {
-                setTemporaryNumber(event.target.value)
-              }}
-            />
-          </label>
-
-          <button
-            className="button button-secondary"
-            type="submit"
-            disabled={busy || !temporaryName.trim()}
-          >
-            {busy ? 'Gardando…' : 'Engadir temporal'}
-          </button>
-        </form>
-      </section>
-
-      <div className="workspace-next-card">
-        <div>
-          <span className="eyebrow">Seguinte</span>
-          <strong>Vídeo, sincronización e orientación do campo</strong>
-        </div>
-        <button className="button button-primary" type="button" disabled>
-          Continuar
-        </button>
-      </div>
+              Continuar
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }
