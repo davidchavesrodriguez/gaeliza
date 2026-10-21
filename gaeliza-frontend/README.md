@@ -1,73 +1,67 @@
-# React + TypeScript + Vite
+# Gaeliza frontend v2
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite frontend for the Gaeliza v2 rewrite.
 
-Currently, two official plugins are available:
+## Current architecture
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+The new application lives under `src/v2` and is the only application code included by `tsconfig.app.json` and ESLint.
 
-## React Compiler
+The older frontend files remain temporarily in `src` as implementation reference while the rewrite advances, but they are not imported by the v2 entrypoint and are not part of the TypeScript build.
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+The v2 entrypoint is `src/main.tsx`.
 
-## Expanding the ESLint configuration
+## Environment
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Copy `.env.example` to `.env.local` and configure a **v2 Supabase project**:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```dotenv
+VITE_GAELIZA_V2_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_GAELIZA_V2_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_key
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+A legacy anon key can temporarily be used with:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```dotenv
+VITE_GAELIZA_V2_SUPABASE_ANON_KEY=your_legacy_anon_key
 ```
+
+The generic legacy variables (`VITE_SUPABASE_URL`, etc.) are deliberately ignored by the v2 application. This prevents an old local `.env` from accidentally pointing the rewrite at the legacy Gaeliza database.
+
+Never expose a `service_role` or secret Supabase key through a `VITE_*` variable: Vite variables are shipped to the browser.
+
+## Authentication model
+
+Routes under `/app` require a Supabase session. If no session exists, Gaeliza creates an Anonymous Auth user through `signInAnonymously()`.
+
+This gives guest work a real `auth.uid()` from the first write, allowing RLS ownership to work normally. The product will later link that same identity to email/password or Google rather than copying guest-owned rows into a different user.
+
+Anonymous Auth must be enabled on the target v2 Supabase project before `/app` can be used.
+
+## Routes
+
+- `/` — public landing page
+- `/app` — authenticated/guest workspace
+- `/app/new` — analysis creation flow
+- `/app/analyses/:analysisId` — analysis workspace
+
+## Development
+
+```bash
+npm ci
+npm run dev
+```
+
+Quality checks:
+
+```bash
+npm run lint
+npm run build
+```
+
+GitHub Actions runs both checks for v2 frontend changes.
+
+## Backend boundary
+
+The v2 frontend talks directly to Supabase under RLS and uses database RPCs for transactional operations such as `create_analysis()` and `log_event()`.
+
+The old FastAPI backend and Vite `/api` proxy are not part of v2.
