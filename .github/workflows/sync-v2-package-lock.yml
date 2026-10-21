@@ -1,0 +1,59 @@
+name: Sync v2 package lock
+
+on:
+  push:
+    branches:
+      - feat/v2
+    paths:
+      - '.github/workflows/sync-v2-package-lock.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      VITE_GAELIZA_V2_SUPABASE_URL: https://example.supabase.co
+      VITE_GAELIZA_V2_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: feat/v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gaeliza-frontend/package-lock.json
+
+      - name: Regenerate lockfile from package.json
+        working-directory: gaeliza-frontend
+        run: npm install
+
+      - name: Audit production dependencies
+        working-directory: gaeliza-frontend
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Lint
+        working-directory: gaeliza-frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: gaeliza-frontend
+        run: npm run build
+
+      - name: Commit lockfile only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gaeliza-frontend/package-lock.json
+          if git diff --cached --quiet; then
+            echo "package-lock.json is already current"
+            exit 0
+          fi
+          git commit -m "chore: refresh v2 package lock"
+          git push origin HEAD:feat/v2
