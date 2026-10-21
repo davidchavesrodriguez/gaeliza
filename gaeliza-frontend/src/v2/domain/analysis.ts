@@ -74,12 +74,17 @@ export function formatAnalysisClock(totalSeconds: number) {
   }
 
   const roundedMilliseconds = Math.round(totalSeconds * 1000)
+  if (!Number.isSafeInteger(roundedMilliseconds)) {
+    return '—'
+  }
   const hours = Math.floor(roundedMilliseconds / 3_600_000)
   const minutes = Math.floor((roundedMilliseconds % 3_600_000) / 60_000)
   const seconds = (roundedMilliseconds % 60_000) / 1000
-  const secondsText = Number.isInteger(seconds)
-    ? String(seconds).padStart(2, '0')
-    : seconds.toFixed(3).replace(/0+$/, '').padStart(2, '0')
+  const [wholeSeconds, fractionalSeconds] = seconds.toFixed(3).split('.')
+  const trimmedFraction = fractionalSeconds.replace(/0+$/, '')
+  const secondsText = `${wholeSeconds.padStart(2, '0')}${
+    trimmedFraction ? `.${trimmedFraction}` : ''
+  }`
 
   if (hours > 0) {
     return `${hours}:${String(minutes).padStart(2, '0')}:${secondsText}`
@@ -100,7 +105,9 @@ export function parseAnalysisClock(
 
   const parts = trimmed.split(':')
 
-  if (parts.length > 3 || parts.some((part) => part.trim() === '')) {
+  // Only seconds may contain a decimal fraction. Reject JS number syntax
+  // (hex, exponents, signs) and whitespace inside a clock.
+  if (!/^\d+(?::\d+){0,2}(?:\.\d+)?$/.test(trimmed)) {
     return null
   }
 
@@ -110,7 +117,18 @@ export function parseAnalysisClock(
     return null
   }
 
-  if (parts.length > 1 && parsed.slice(1).some((part) => part >= 60)) {
+  if (
+    parts.length > 1 &&
+    parsed.slice(0, -1).some((part) => !Number.isInteger(part))
+  ) {
+    return null
+  }
+
+  if (parts.length > 1 && parsed[parsed.length - 1] >= 60) {
+    return null
+  }
+
+  if (parts.length === 3 && parsed[1] >= 60) {
     return null
   }
 
@@ -124,7 +142,11 @@ export function parseAnalysisClock(
     totalSeconds = parsed[0]
   }
 
-  if (options.integer && !Number.isInteger(totalSeconds)) {
+  if (
+    !Number.isFinite(totalSeconds) ||
+    totalSeconds > Number.MAX_SAFE_INTEGER ||
+    (options.integer && !Number.isSafeInteger(totalSeconds))
+  ) {
     return null
   }
 

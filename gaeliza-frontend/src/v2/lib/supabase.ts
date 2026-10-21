@@ -1,13 +1,21 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_GAELIZA_V2_SUPABASE_URL
-const supabaseKey =
-  import.meta.env.VITE_GAELIZA_V2_SUPABASE_PUBLISHABLE_KEY ??
-  import.meta.env.VITE_GAELIZA_V2_SUPABASE_ANON_KEY
+// The cloud sandbox supplies the standard Vite names. Keep the explicit v2
+// aliases for existing v2 deployments and CI; never infer a remote project.
+const sandboxUrl = import.meta.env.VITE_SUPABASE_URL
+const sandboxKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const useSandbox = sandboxUrl !== undefined || sandboxKey !== undefined
+const supabaseUrl = useSandbox
+  ? sandboxUrl
+  : import.meta.env.VITE_GAELIZA_V2_SUPABASE_URL
+const supabaseKey = useSandbox
+  ? sandboxKey
+  : (import.meta.env.VITE_GAELIZA_V2_SUPABASE_PUBLISHABLE_KEY ??
+    import.meta.env.VITE_GAELIZA_V2_SUPABASE_ANON_KEY)
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(
-    'Missing Gaeliza v2 Supabase configuration. Set VITE_GAELIZA_V2_SUPABASE_URL and VITE_GAELIZA_V2_SUPABASE_PUBLISHABLE_KEY (or VITE_GAELIZA_V2_SUPABASE_ANON_KEY for legacy key compatibility).',
+    'Missing Gaeliza v2 Supabase configuration. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for the development sandbox, or the VITE_GAELIZA_V2_SUPABASE_* deployment aliases.',
   )
 }
 
