@@ -331,6 +331,17 @@
   gap: 0.12rem;
 }
 
+.timeline-event-actions {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.timeline-video-times a,
+.timeline-video-times button {
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
 .timeline-event-time strong {
   font-size: 0.92rem;
 }
@@ -436,7 +447,7 @@
     grid-template-columns: 54px minmax(0, 1fr);
   }
 
-  .timeline-event > .participant-remove {
+  .timeline-event-actions {
     grid-column: 2;
     justify-self: start;
   }
