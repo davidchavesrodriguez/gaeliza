@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react'
 import type { Session } from '@supabase/supabase-js'
 
-export type AuthStatus = 'loading' | 'ready'
+export type AuthStatus = 'loading' | 'ready' | 'error'
 
 export type AuthContextValue = {
   session: Session | null
@@ -9,6 +9,7 @@ export type AuthContextValue = {
   error: string | null
   isAnonymous: boolean
   ensureGuestSession: () => Promise<Session>
+  retrySession: () => void
   signOut: () => Promise<void>
 }
 

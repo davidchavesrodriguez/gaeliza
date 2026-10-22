@@ -1,132 +1,65 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type PropsWithChildren,
-} from 'react'
-import type { Session } from '@supabase/supabase-js'
+import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react'
 import { supabase } from '../lib/supabase'
-import {
-  AuthContext,
-  type AuthContextValue,
-  type AuthStatus,
-} from './auth-context'
+import { AuthContext, type AuthContextValue } from './auth-context'
+import { createAuthBootstrap, createGuestSession, type SessionState } from './session-bootstrap'
 
-let guestSessionPromise: Promise<Session> | null = null
-
-async function getOrCreateGuestSession(): Promise<Session> {
-  const { data: currentSession, error: sessionError } =
-    await supabase.auth.getSession()
-
-  if (sessionError) {
-    throw sessionError
-  }
-
-  if (currentSession.session) {
-    return currentSession.session
-  }
-
-  if (!guestSessionPromise) {
-    guestSessionPromise = (async () => {
-      const { data, error } = await supabase.auth.signInAnonymously()
-
-      if (error) {
-        throw error
-      }
-
-      if (!data.session) {
-        throw new Error('Supabase did not return a session for anonymous sign-in.')
-      }
-
-      return data.session
-    })().finally(() => {
-      guestSessionPromise = null
-    })
-  }
-
-  return guestSessionPromise
-}
+const bootstrap = createAuthBootstrap(supabase.auth)
+const getOrCreateGuestSession = createGuestSession(supabase.auth)
+const initialState: SessionState = { session: null, status: 'loading', error: null }
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [session, setSession] = useState<Session | null>(null)
-  const [status, setStatus] = useState<AuthStatus>('loading')
-  const [error, setError] = useState<string | null>(null)
+  const [state, setState] = useState(initialState)
+  const [attempt, setAttempt] = useState(0)
+  const generation = useRef(0)
+  const stopBootstrap = useRef<(() => void) | null>(null)
 
   useEffect(() => {
-    let active = true
+    generation.current += 1
+    const stop = bootstrap(setState)
+    stopBootstrap.current = stop
+    return () => { generation.current += 1; stop(); stopBootstrap.current = null }
+  }, [attempt])
 
-    void supabase.auth.getSession().then(({ data, error: sessionError }) => {
-      if (!active) {
-        return
-      }
-
-      if (sessionError) {
-        setError(sessionError.message)
-      }
-
-      setSession(data.session)
-      setStatus('ready')
-    })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (!active) {
-        return
-      }
-
-      setSession(nextSession)
-      setError(null)
-      setStatus('ready')
-    })
-
-    return () => {
-      active = false
-      subscription.unsubscribe()
-    }
+  const retrySession = useCallback(() => {
+    // Invalidate immediately, before React's passive effect cleanup runs.
+    generation.current += 1
+    stopBootstrap.current?.()
+    setState(initialState)
+    setAttempt((current) => current + 1)
   }, [])
 
   const ensureGuestSession = useCallback(async () => {
-    setError(null)
-
+    const current = generation.current
+    setState((value) => ({ ...value, error: null }))
     try {
-      const nextSession = await getOrCreateGuestSession()
-      setSession(nextSession)
-      return nextSession
-    } catch (caughtError) {
-      const message =
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'Could not start a guest session.'
-
-      setError(message)
-      throw caughtError
+      const session = await getOrCreateGuestSession()
+      if (current === generation.current) setState({ session, status: 'ready', error: null })
+      return session
+    } catch (caught) {
+      if (current === generation.current) setState((value) => ({ ...value,
+        error: caught instanceof Error ? caught.message : 'Non puidemos iniciar a sesión de invitado.',
+      }))
+      throw caught
     }
   }, [])
 
   const signOut = useCallback(async () => {
-    const { error: signOutError } = await supabase.auth.signOut()
-
-    if (signOutError) {
-      setError(signOutError.message)
-      throw signOutError
+    const current = generation.current
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      if (current === generation.current) setState((value) => ({ ...value, error: error.message }))
+      throw error
     }
-
-    setSession(null)
+    if (current === generation.current) setState({ session: null, status: 'ready', error: null })
   }, [])
 
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      session,
-      status,
-      error,
-      isAnonymous: session?.user.is_anonymous === true,
-      ensureGuestSession,
-      signOut,
-    }),
-    [session, status, error, ensureGuestSession, signOut],
-  )
+  const value = useMemo<AuthContextValue>(() => ({
+    ...state,
+    isAnonymous: state.session?.user.is_anonymous === true,
+    ensureGuestSession,
+    retrySession,
+    signOut,
+  }), [state, ensureGuestSession, retrySession, signOut])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
