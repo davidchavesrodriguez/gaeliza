@@ -20,12 +20,12 @@ export const restartTypes = ['free', 'sideline', 'throw_in', 'forty_five', 'pena
 type Item<T extends readonly string[]> = T[number]
 type Destination = { end_x: number | null; end_y: number | null }
 type Details = {
-  shot: { result: Item<typeof shotResults>; technique: Item<typeof techniques> | null; situation: Item<typeof shotSituations> | null }
+  shot: { result: Item<typeof shotResults> | null; technique: Item<typeof techniques> | null; situation: Item<typeof shotSituations> | null }
   recovery: { method: Item<typeof recoveryMethods> | null }
   turnover: { cause: Item<typeof turnoverCauses> | null }
   foul: { cause: Item<typeof foulCauses> | null; outcome: Item<typeof foulOutcomes> | null }
-  card: { card_type: Item<typeof cardTypes> }
-  kickout: Destination & { length: Item<typeof kickoutLengths>; result: Item<typeof kickoutResults> | null }
+  card: { card_type: Item<typeof cardTypes> | null }
+  kickout: Destination & { length: Item<typeof kickoutLengths> | null; result: Item<typeof kickoutResults> | null }
   block: Record<string, never>
   pass: Destination & { result: Item<typeof passResults> | null; technique: Item<typeof techniques> | null }
   duel: { duel_type: Item<typeof duelTypes> | null }
@@ -42,6 +42,7 @@ export type ParticipantRole =
   | 'passer' | 'receiver' | 'intended_receiver' | 'interceptor'
   | 'duel_winner' | 'duel_loser' | 'dribbler' | 'defender' | 'restart_taker'
   | 'player_out' | 'player_in' | 'goalkeeper_out' | 'goalkeeper_in'
+  | 'target' | 'kickout_receiver' | 'opponent'
 export type RoleSpec = { role: ParticipantRole; label: string; team: 'same' | 'opponent' }
 export type SelectedRoles = Partial<Record<ParticipantRole, string>>
 export type CaptureFormState = {

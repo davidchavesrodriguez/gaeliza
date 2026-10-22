@@ -1,7 +1,10 @@
+import { useState } from 'react'
+import { updateAnalysisEvent } from '../data/event-editing'
 import { logQuickEvent, removeAnalysisEvent, rebuildInferredPossessions, reopenAnalysis } from '../data/tagging'
 import type { AnalysisWorkspace } from '../domain/analysis'
 import { quickEventLabels } from '../domain/tagging'
 import { QuickEventForm } from './tagging/QuickEventForm'
+import { EventEditor } from './tagging/EventEditor'
 import { TaggingTimeline } from './tagging/TaggingTimeline'
 import { TaggingScoreboard } from './tagging/TaggingScoreboard'
 import { useTaggingEvents } from './tagging/useTaggingEvents'
@@ -13,6 +16,8 @@ type Props = {
 }
 
 export function TaggingPanel({ workspace, onBack, onWorkspaceChanged }: Props) {
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [possessionsNeedReview, setPossessionsNeedReview] = useState(false)
   const { events, loadingEvents, busy, error, notice, needsRefresh, refreshData, runTaggingMutation } =
     useTaggingEvents(workspace.id, onWorkspaceChanged)
   const captureDisabled = busy || loadingEvents || needsRefresh || workspace.status === 'completed'
@@ -62,13 +67,21 @@ export function TaggingPanel({ workspace, onBack, onWorkspaceChanged }: Props) {
       ) : null}
 
       <TaggingScoreboard workspace={workspace} events={events} />
+      {possessionsNeedReview ? <p role="status">Evento actualizado. Revisa e reconstrúe explicitamente as posesións inferidas; non se reconstruíron automaticamente.</p> : null}
       <div className="tagging-layout">
-        <QuickEventForm workspace={workspace} captureDisabled={captureDisabled} busy={busy}
+        {editingId && workspace.status !== 'completed' ? <EventEditor key={editingId} eventId={editingId}
+          workspace={workspace} busy={busy} disabled={captureDisabled} onCancel={() => setEditingId(null)}
+          onSave={(event, input) => runTaggingMutation(async () => {
+            await updateAnalysisEvent(event, input)
+            setPossessionsNeedReview(true)
+            return 'Evento actualizado.'
+          })} /> : <QuickEventForm workspace={workspace} captureDisabled={captureDisabled} busy={busy}
           onSave={(input) => runTaggingMutation(async () => {
             await logQuickEvent(input)
             return `${quickEventLabels[input.eventType]} gardado.`
-          })} />
+          })} />}
         <TaggingTimeline workspace={workspace} events={events} loadingEvents={loadingEvents} disabled={captureDisabled}
+          onEdit={(id) => { if (!captureDisabled) setEditingId(id) }}
           onDelete={async (id) => {
             if (captureDisabled) return
             await runTaggingMutation(async () => { await removeAnalysisEvent(id); return 'Evento eliminado.' })
@@ -77,6 +90,7 @@ export function TaggingPanel({ workspace, onBack, onWorkspaceChanged }: Props) {
             if (captureDisabled) return
             await runTaggingMutation(async () => {
               const count = await rebuildInferredPossessions(workspace.id)
+              setPossessionsNeedReview(false)
               return `${count} posesións inferidas a partir dos eventos canónicos.`
             })
           }} />
