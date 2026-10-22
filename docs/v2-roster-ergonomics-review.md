@@ -1,8 +1,7 @@
 # Convocatoria: ergonomía por equipo
 
-Base real de `feat/v2`: `55ca68df4a8c4afc7b7bc85550f39b96d9c9983a`.
-Rama: `feat/v2-roster-ergonomics`. Este PR no incorpora el PR de ergonomía de tagging
-mientras no forme parte de la base; no hay cambios en tagging, DB, RPCs ni dependencias.
+Base actualizada de `feat/v2`: `47379c723d166c7d934c6cefbdc7aa605bb0b785`, con el PR #7 de ergonomía de tagging ya integrado.
+Rama: `feat/v2-roster-ergonomics`. Este PR mantiene su alcance propio: no modifica tagging, DB, RPCs ni dependencias.
 
 ## Cambios
 
@@ -30,6 +29,8 @@ orientación, vídeos y sync sin cambiar sus contratos o controles.
 
 ## Validación y revisión
 
+Validación standalone del slice antes de actualizarlo sobre el PR #7:
+
 - npm ci: OK; npm audit --audit-level=high: cero vulnerabilidades.
 - Lint y build: OK. Warning existente de bundle >500 kB conservado.
 - Node: 127/127.
@@ -40,6 +41,8 @@ orientación, vídeos y sync sin cambiar sus contratos o controles.
 - Sin DB: no se ejecuta PostgreSQL fresh, conforme al alcance solicitado.
 - [Capturas sintéticas](screenshots/v2-roster-ergonomics/README.md): desktop ambos
   equipos, rival vacío, convocatoria larga y móvil. Ninguna consulta remota.
+
+Tras integrar la base de #7, GitHub Actions vuelve a validar la combinación completa antes del merge de este PR.
 
 Reproducir desde `gaeliza-frontend`, con Playwright/Chromium externos disponibles:
 
