@@ -1,3 +1,4 @@
+import { domainLabel } from '../../domain/presentation'
 import { useState } from 'react'
 import type { AnalysisParticipant } from '../../domain/analysis'
 import { editingRoleSpecs } from '../../domain/event-editing'
@@ -18,8 +19,8 @@ export function AdditionalEventParticipants({ capture, teamId, roster, items, di
     <legend>Roles adicionais</legend>
     <p>Consérvanse os roles que a captura rápida non amosaba. Podes revisalos aquí.</p>
     {items.map((item, index) => <div key={`${item.role}:${item.participantId}`}>
-      <span>{item.role} · {roster.find((p) => p.id === item.participantId)?.displayName ?? 'Participante non dispoñible'}</span>
-      <button type="button" onClick={() => onChange(items.filter((_, i) => i !== index))}>Quitar rol {item.role}</button>
+      <span>{domainLabel(item.role)} · {roster.find((p) => p.id === item.participantId)?.displayName ?? 'Participante non dispoñible'}</span>
+      <button type="button" onClick={() => onChange(items.filter((_, i) => i !== index))}>Quitar rol {domainLabel(item.role)}</button>
     </div>)}
     <div className="tagging-participant-grid">
       <label><span>Engadir rol</span><select value={selected?.role ?? ''} onChange={(event) => { setRole(event.target.value); setPersonId('') }}>

@@ -62,12 +62,12 @@ function mapEvent(event: RawEventFact): AnalysisEventSummary {
 function taggingError(message: string, code?: string) {
   if (code === '23514') {
     return new Error(
-      'O evento non é coherente co estado do análise, o equipo, o tempo ou os roles seleccionados.',
+      'O evento non é coherente co estado da análise, o equipo, o tempo ou os roles seleccionados.',
     )
   }
 
   if (code === '23505') {
-    return new Error('Ese dato xa está rexistrado no análise.')
+    return new Error('Ese dato xa está rexistrado na análise.')
   }
 
   return new Error(message)

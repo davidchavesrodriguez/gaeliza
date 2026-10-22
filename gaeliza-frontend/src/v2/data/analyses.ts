@@ -28,3 +28,9 @@ export async function createAnalysis({
 
   return data
 }
+
+export async function completeAnalysis(analysisId: string): Promise<void> {
+  const { error } = await supabase.from('analyses').update({ status: 'completed' })
+    .eq('id', analysisId).select('id').single()
+  if (error) throw new Error(`Non puidemos finalizar a análise: ${error.message}`)
+}

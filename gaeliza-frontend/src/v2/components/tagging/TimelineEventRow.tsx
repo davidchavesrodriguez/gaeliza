@@ -1,12 +1,12 @@
 import { formatAnalysisClock, type AnalysisWorkspace } from '../../domain/analysis'
 import { getEventResultLabel, eventTypeLabel, type AnalysisEventSummary } from '../../domain/tagging'
-import type { DirectVideoRequest } from './DirectVideoPlayer'
+import type { VideoNavigationInput } from '../../domain/video-navigation'
 import { VideoEventLinks } from './VideoEventLinks'
 
 type Props = {
   workspace: AnalysisWorkspace; event: AnalysisEventSummary; disabled: boolean
   onDelete: (id: string) => Promise<void>; onEdit: (id: string) => void
-  onSeek: (request: Omit<DirectVideoRequest, 'requestId'>) => void
+  onSeek: (request: VideoNavigationInput) => void
 }
 export function TimelineEventRow({ workspace, event, disabled, onDelete, onEdit, onSeek }: Props) {
   const team = event.teamId === workspace.homeTeam.id ? workspace.homeTeam : workspace.awayTeam

@@ -130,12 +130,15 @@ export function isCoordinatePair(x: number | null, y: number | null) {
 }
 
 export function buildCaptureInput(form: CaptureFormState, workspace: AnalysisWorkspace): LogQuickEventInput {
-  if (workspace.status === 'completed') throw new Error('Reabre o análise antes de engadir ou editar eventos.')
+  if (workspace.status === 'completed') throw new Error('Reabre a análise antes de engadir ou editar eventos.')
   if (![workspace.homeTeam.id, workspace.awayTeam.id].includes(form.teamId)) throw new Error('Escolle un equipo válido.')
   if (!workspace.periods.some((period) => period.id === form.periodId)) throw new Error('Escolle un período válido.')
   const secondInPeriod = parseAnalysisClock(form.clock, { integer: true })
   if (secondInPeriod === null || secondInPeriod > 2147483647) throw new Error('Introduce un tempo válido do período, por exemplo 12:34.')
-  if (!isCoordinatePair(form.x, form.y)) throw new Error('A posición debe ter X e Y entre 0 e 100, ou quedar baleira.')
+  const hideOrigin = form.capture.eventType === 'kickout'
+  const x = hideOrigin ? null : form.x
+  const y = hideOrigin ? null : form.y
+  if (!isCoordinatePair(x, y)) throw new Error('A posición debe ter X e Y entre 0 e 100, ou quedar baleira.')
   const { capture } = form
   if ((capture.eventType === 'pass' || capture.eventType === 'kickout') &&
       !isCoordinatePair(capture.detail.end_x, capture.detail.end_y)) throw new Error('O destino debe ter X e Y entre 0 e 100, ou quedar baleiro.')
@@ -152,7 +155,7 @@ export function buildCaptureInput(form: CaptureFormState, workspace: AnalysisWor
     }
   }
   return { analysisId: workspace.id, periodId: form.periodId, teamId: form.teamId,
-    eventType: capture.eventType, secondInPeriod, x: form.x, y: form.y,
+    eventType: capture.eventType, secondInPeriod, x, y,
     detail: capture.detail, participants }
 }
 

@@ -314,12 +314,12 @@ export async function getAnalysisWorkspace(
 
 function participantMutationError(message: string, code?: string) {
   if (code === '23505') {
-    return new Error('Ese xogador xa está na convocatoria deste análise.')
+    return new Error('Ese xogador xa está na convocatoria desta análise.')
   }
 
   if (code === '23503') {
     return new Error(
-      'Non podes quitar este participante porque xa está referenciado por eventos do análise.',
+      'Non podes quitar este participante porque xa está referenciado por eventos da análise.',
     )
   }
 

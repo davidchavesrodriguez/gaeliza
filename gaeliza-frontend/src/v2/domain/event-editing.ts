@@ -1,3 +1,4 @@
+import { domainLabel } from './presentation.ts'
 import { formatAnalysisClock } from './analysis.ts'
 import {
   shotResults, techniques, shotSituations, recoveryMethods, turnoverCauses, foulCauses,
@@ -67,8 +68,8 @@ export function captureFromFact(fact: Record<string, unknown>): CaptureDraft {
 // Extra DB-supported roles remain visible/editable without overwriting duplicate
 // roles or information that quick capture did not expose.
 export function additionalRoleSpecs(capture: CaptureDraft): RoleSpec[] {
-  const same = (role: ParticipantRole): RoleSpec => ({ role, label: role, team: 'same' })
-  const opponent = (role: ParticipantRole): RoleSpec => ({ role, label: role, team: 'opponent' })
+  const same = (role: ParticipantRole): RoleSpec => ({ role, label: domainLabel(role), team: 'same' })
+  const opponent = (role: ParticipantRole): RoleSpec => ({ role, label: domainLabel(role), team: 'opponent' })
   switch (capture.eventType) {
     case 'shot': return participantRoles(capture).some((spec) => spec.role === 'goalkeeper') ? [] : [opponent('goalkeeper')]
     case 'recovery': case 'turnover': return [opponent('opponent')]

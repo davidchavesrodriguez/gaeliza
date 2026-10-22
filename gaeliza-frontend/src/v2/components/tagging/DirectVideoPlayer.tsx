@@ -22,9 +22,8 @@ export function DirectVideoPlayer({ request }: { request: DirectVideoRequest }) 
     const video = element.current
     if (video && video.readyState >= 1) seek(video, request.second)
   }, [request.second, request.requestId])
-  return <section className="state-card" aria-label="Reprodutor de vídeo">
-    <strong>{request.title}</strong>
-    <video ref={element} src={request.url} controls preload="metadata" style={{ width: '100%' }}
+  return <section className="native-video-player" aria-label="Reprodutor de vídeo">
+    <video aria-label={request.title} ref={element} src={request.url} controls preload="metadata" style={{ width: '100%' }}
       onLoadedMetadata={(event) => seek(event.currentTarget, latest.current)}
       onError={() => setError('Non foi posible cargar o vídeo. Comproba a URL e os permisos do provedor.')} />
     {error ? <p role="alert">{error}</p> : null}

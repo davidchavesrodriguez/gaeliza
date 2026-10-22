@@ -1,3 +1,4 @@
+import { formatProductDate } from './presentation.ts'
 export type TeamSummary = {
   id: string
   name: string
@@ -26,20 +27,7 @@ export type MatchOption = {
 export type AnalysisMode = 'post_match' | 'live'
 
 export function formatMatchDate(scheduledAt: string | null) {
-  if (!scheduledAt) {
-    return 'Data por confirmar'
-  }
-
-  const date = new Date(scheduledAt)
-
-  if (Number.isNaN(date.getTime())) {
-    return 'Data por confirmar'
-  }
-
-  return new Intl.DateTimeFormat('gl-ES', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)
+  return formatProductDate(scheduledAt)
 }
 
 export function formatRound(match: MatchOption) {

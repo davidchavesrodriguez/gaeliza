@@ -6,6 +6,7 @@ import { compatibleAdditionalParticipants, mergeEditingParticipants, type EventF
 import { AdditionalEventParticipants } from './AdditionalEventParticipants'
 import { PitchCoordinatePicker } from '../PitchCoordinatePicker'
 import { CommonEventFields } from './CommonEventFields'
+import { EventTypeControls } from './EventTypeControls'
 import { EventDetailFields } from './EventDetailFields'
 import { EventParticipantFields } from './EventParticipantFields'
 
@@ -63,17 +64,13 @@ export function QuickEventForm({ workspace, captureDisabled, busy, onSave, initi
   const { capture } = form
   const saveLabel = initialEvent ? 'Gardar cambios' : `Gardar ${quickEventLabels[capture.eventType].toLowerCase()}`
   return <form className="state-card tagging-capture-card" onSubmit={handleSubmit}>
-    <div className="section-heading-inline"><div>
-      <span className="eyebrow">{initialEvent ? 'Edición de evento' : 'Captura rápida'}</span><h2>{initialEvent ? 'Modificar evento' : 'Rexistra un feito do partido'}</h2>
-      <p>Garda o mínimo que coñezas. Xogador e posición son opcionais; o evento segue sendo válido a nivel de equipo.</p>
-    </div></div>
+    {!initialEvent ? <EventTypeControls active={capture.eventType} disabled={captureDisabled}
+      onSelect={(type) => { if (type !== capture.eventType) updateCapture(defaultCapture(type)) }} /> : null}
+    <div className="active-event-heading"><h3>{initialEvent ? 'Modificar evento' : quickEventLabels[capture.eventType]}</h3>
+      <p className="form-hint">Rexistra o que coñezas. O borrador queda gardado cando confirmas o evento.</p>
+      {initialEvent ? <p className="form-hint">Tipo: {quickEventLabels[capture.eventType]}. Para outro tipo físico, elimina e crea un evento novo.</p> : null}
+    </div>
     {error ? <div className="form-error" role="alert">{error}</div> : null}
-    {initialEvent ? <p>Tipo: {quickEventLabels[capture.eventType]}. Para outro tipo físico, elimina e crea un evento novo.</p> : <div className="event-type-grid" role="group" aria-label="Tipo de evento">
-      {eventTypes.map((type) => <button
-        className={`event-type-button${type === capture.eventType ? ' event-type-button-active' : ''}`}
-        type="button" key={type} disabled={captureDisabled} aria-pressed={type === capture.eventType}
-        onClick={() => { if (type !== capture.eventType) updateCapture(defaultCapture(type)) }}>{quickEventLabels[type]}</button>)}
-    </div>}
     <CommonEventFields workspace={workspace} form={form} disabled={captureDisabled} onChange={(field, value) => {
       setError(null)
       const next = { ...form, [field]: value, roles: form.roles }
@@ -86,23 +83,22 @@ export function QuickEventForm({ workspace, captureDisabled, busy, onSave, initi
       disabled={captureDisabled} onChange={(role, id) => setForm((current) => ({ ...current, roles: { ...current.roles, [role]: id } }))} />
     {initialEvent ? <AdditionalEventParticipants capture={capture} teamId={form.teamId} roster={workspace.participants}
       items={additional} disabled={captureDisabled} onChange={setAdditional} /> : null}
-    <div className="tagging-pitch-section">
-      <div><span className="roster-subheading">Posición no campo</span><small>Opcional · coordenadas raw 0–100</small></div>
+    {capture.eventType === 'kickout' ? <p className="form-hint">O saque de porta gárdase sen posición inicial. Marca só o destino se o coñeces.</p> : null}
+    <div className="event-coordinate-sections">
+    {capture.eventType !== 'kickout' ? <div className="tagging-pitch-section">
+      <div><span className="roster-subheading">Posición no campo</span><small>Opcional · escala 0–100</small></div>
       <PitchCoordinatePicker x={form.x} y={form.y} disabled={captureDisabled}
         onChange={(x, y) => setForm((current) => ({ ...current, x, y }))} />
-    </div>
+    </div> : null}
     {capture.eventType === 'pass' || capture.eventType === 'kickout' ? <div className="tagging-pitch-section">
-      <div><span className="roster-subheading">Destino no campo</span><small>Opcional · coordenadas raw 0–100</small></div>
+      <div><span className="roster-subheading">Destino no campo</span><small>Opcional · escala 0–100</small></div>
       <PitchCoordinatePicker labelPrefix="Destino" x={capture.detail.end_x} y={capture.detail.end_y} disabled={captureDisabled}
         onChange={(end_x, end_y) => updateCapture(withDestination(capture, end_x, end_y))} />
     </div> : null}
+    </div>
     <button className="button button-primary tagging-save-button" type="submit" disabled={captureDisabled}>
       {busy ? 'Gardando…' : saveLabel}
-
     </button>
     {onCancel ? <button className="button button-secondary" type="button" disabled={busy} onClick={onCancel}>Cancelar edición</button> : null}
   </form>
 }
-
-const eventTypes = ['shot', 'recovery', 'turnover', 'foul', 'card', 'kickout', 'block',
-  'pass', 'duel', 'dribble', 'restart', 'substitution', 'goalkeeper_change'] as const

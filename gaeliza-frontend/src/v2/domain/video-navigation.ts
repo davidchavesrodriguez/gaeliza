@@ -47,3 +47,19 @@ export function buildVideoSeekTarget(value: string, second: number, duration: nu
   target.searchParams.set('t', String(Math.floor(second)))
   return { kind, url: target.href, second }
 }
+
+export type VideoNavigationInput = VideoSeekTarget & { videoId: string; title: string }
+export type VideoNavigationRequest = VideoNavigationInput & { requestId: number }
+
+export function buildYouTubeEmbedUrl(source: string, second: number): string | null {
+  const target = buildVideoSeekTarget(source, second)
+  if (target?.kind !== 'youtube') return null
+  const id = new URL(target.url).searchParams.get('v')
+  if (!id) return null
+  const embed = new URL('https://www.youtube-nocookie.com')
+  embed.pathname = `/embed/${id}`
+  embed.searchParams.set('start', String(Math.floor(second)))
+  embed.searchParams.set('autoplay', '0')
+  embed.searchParams.set('rel', '0')
+  return embed.href
+}
