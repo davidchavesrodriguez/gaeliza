@@ -24,3 +24,29 @@
 .form-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); padding: 16px 0; background: var(--paper); }
 .selection-summary { color: var(--ink-soft); font-size: .9rem; }
 @media (max-width: 640px) { .form-actions { align-items: stretch; flex-direction: column; } }
+
+/* Focused personal match preparation, sharing existing control tokens. */
+.self-service-setup { max-width: 1200px; width: 100%; }
+.self-service-setup .page-heading p { margin: 4px 0 0; }
+.setup-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; align-items: start; }
+.setup-team { min-width: 0; }
+.setup-team > .text-link { background: transparent; border: 0; padding: 0; min-height: 44px; cursor: pointer; }
+.setup-team h2 { font-size: 1.15rem; margin: 0 0 12px; }
+.self-service-setup label { display: grid; gap: 4px; font-size: .9rem; color: var(--ink-soft); min-width: 0; }
+.setup-team-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; margin-bottom: 12px; }
+.setup-team-create, .setup-match-form { display: grid; gap: 12px; }
+.setup-pagination { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.setup-mode, .setup-existing-matches { border: 0; padding: 0; margin: 0; min-width: 0; }
+.setup-mode legend { margin-bottom: 8px; }
+.self-service-setup .setup-mode label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-right: 24px; }
+.setup-mode input { min-height: auto; accent-color: var(--accent); }
+.setup-match-fields, .setup-player-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.team-player-setup { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.team-player-setup h3 { margin: 0 0 8px; }
+.setup-player-list { list-style: none; padding: 0; margin: 0; }
+.setup-player-list li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 8px; border-bottom: 1px solid var(--line); padding: 10px 0; font-size: .85rem; }
+.setup-player-list strong { overflow-wrap: anywhere; }
+.setup-player-list span { color: var(--ink-soft); }
+.setup-player-form button { justify-self: start; }
+@media (max-width: 800px) { .setup-teams { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .setup-match-fields, .setup-player-form { grid-template-columns: 1fr; } }

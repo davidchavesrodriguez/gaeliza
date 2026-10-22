@@ -1,301 +1,83 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth/auth-context'
 import { createAnalysis } from '../data/analyses'
 import { listAnalyzableMatches } from '../data/matches'
-import {
-  formatMatchDate,
-  formatRound,
-  type AnalysisMode,
-  type MatchOption,
-} from '../domain/matches'
-
-const steps = [
-  {
-    number: '01',
-    title: 'Partido',
-    text: 'Escolle un encontro oficial ou persoal.',
-  },
-  {
-    number: '02',
-    title: 'Convocatoria',
-    text: 'Prepara xogadores persistentes e rivais temporais.',
-  },
-  {
-    number: '03',
-    title: 'Modo',
-    text: 'Vídeo post-partido ou captura rápida en directo.',
-  },
-]
-
-const modeOptions: Array<{
-  value: AnalysisMode
-  title: string
-  description: string
-}> = [
-  {
-    value: 'post_match',
-    title: 'Desde vídeo',
-    description:
-      'Fluxo recomendado: etiqueta con calma, sincroniza o vídeo e completa detalles despois do partido.',
-  },
-  {
-    value: 'live',
-    title: 'En directo',
-    description:
-      'Captura rápida durante o encontro e enriquece as accións máis tarde desde vídeo.',
-  },
-]
-
-function MatchCard({
-  match,
-  selected,
-  onSelect,
-}: {
-  match: MatchOption
-  selected: boolean
-  onSelect: () => void
-}) {
-  const round = formatRound(match)
-  const competitionName =
-    match.competition?.shortName ?? match.competition?.name ?? 'Sen competición'
-
-  return (
-    <button
-      className={selected ? 'match-card match-card-selected' : 'match-card'}
-      type="button"
-      aria-pressed={selected}
-      onClick={onSelect}
-    >
-      <div className="match-card-meta">
-        <span className="badge">
-          {match.scope === 'official' ? 'Oficial' : 'Persoal'}
-        </span>
-        <span>{competitionName}</span>
-        {round ? <span>{round}</span> : null}
-      </div>
-
-      <div className="match-card-teams">
-        <strong>{match.homeTeam.shortName ?? match.homeTeam.name}</strong>
-        <span className="match-card-versus">vs</span>
-        <strong>{match.awayTeam.shortName ?? match.awayTeam.name}</strong>
-      </div>
-
-      <span className="match-card-date">{formatMatchDate(match.scheduledAt)}</span>
-    </button>
-  )
-}
+import { createPersonalMatchAnalysis } from '../data/personal-matches'
+import { localDateTimeToInstant, type TeamOption } from '../domain/personal-setup'
+import type { AnalysisMode, MatchOption } from '../domain/matches'
+import { SetupTeamSelector } from '../components/setup/SetupTeamSelector'
+import { ExistingMatchOption } from '../components/setup/ExistingMatchOption'
 
 export function CreateAnalysisPage() {
   const navigate = useNavigate()
-  const [matches, setMatches] = useState<MatchOption[]>([])
-  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
-  const [mode, setMode] = useState<AnalysisMode>('post_match')
-  const [loading, setLoading] = useState(true)
-  const [creating, setCreating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
+  const { session } = useAuth()
+  const [path, setPath] = useState<'existing' | 'new'>('existing')
+  const [matches, setMatches] = useState<MatchOption[]>([]), [selectedMatchId, setSelectedMatchId] = useState('')
+  const [home, setHome] = useState<TeamOption | null>(null), [away, setAway] = useState<TeamOption | null>(null)
+  const [date, setDate] = useState(''), [round, setRound] = useState(''), [mode, setMode] = useState<AnalysisMode>('post_match')
+  const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [creating, setCreating] = useState(false)
+  const [error, setError] = useState<string | null>(null), [loadError, setLoadError] = useState<string | null>(null)
+  const [retry, setRetry] = useState(0), [catalogRevision, setCatalogRevision] = useState(0)
+  const pending = useRef(false)
   useEffect(() => {
     const controller = new AbortController()
-    let active = true
-
-    void listAnalyzableMatches(controller.signal)
-      .then((nextMatches) => {
-        if (!active) {
-          return
-        }
-
-        setMatches(nextMatches)
-        setSelectedMatchId((current) => current ?? nextMatches[0]?.id ?? null)
-        setError(null)
-      })
-      .catch((caughtError) => {
-        if (!active) {
-          return
-        }
-
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : 'Non puidemos cargar os partidos.',
-        )
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false)
-        }
-      })
-
-    return () => {
-      active = false
-      controller.abort()
-    }
-  }, [])
-
-  const selectedMatch = useMemo(
-    () => matches.find((match) => match.id === selectedMatchId) ?? null,
-    [matches, selectedMatchId],
-  )
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    setLoading(true)
+    void listAnalyzableMatches(controller.signal).then((result) => {
+      if (controller.signal.aborted) return
+      setMatches(result); setSelectedMatchId((id) => result.some((m) => m.id === id) ? id : result[0]?.id ?? ''); setLoadError(null)
+    }).catch((e: unknown) => { if (!controller.signal.aborted) setLoadError(e instanceof Error ? e.message : 'Non puidemos cargar os partidos.') })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [retry])
+  const locked = busy || creating
+  const sameTeam = home !== null && home.id === away?.id
+  async function submit(event: FormEvent) {
     event.preventDefault()
-
-    if (!selectedMatch) {
-      return
-    }
-
-    setCreating(true)
-    setError(null)
-
+    if (locked || pending.current || (path === 'existing' && (!selectedMatchId || loading))) return
+    pending.current = true; setCreating(true); setError(null)
     try {
-      const analysisId = await createAnalysis({
-        matchId: selectedMatch.id,
-        mode,
-      })
-
-      navigate(`/app/analyses/${analysisId}`)
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'Non puidemos crear a análise.',
-      )
-      setCreating(false)
-    }
+      const id = path === 'existing' ? await createAnalysis({ matchId: selectedMatchId, mode }) :
+        (await createPersonalMatchAnalysis({ homeTeamId: home?.id ?? '', awayTeamId: away?.id ?? '', scheduledAt: localDateTimeToInstant(date), roundLabel: round, mode })).analysisId
+      navigate(`/app/analyses/${id}?step=roster`)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Non puidemos crear a análise.'); setCreating(false) }
+    finally { pending.current = false }
   }
-
-  return (
-    <div className="page-stack">
-      <section className="page-heading page-heading-narrow">
-        <div>
-          <span className="eyebrow">Nova análise</span>
-          <h1>Prepara o partido antes de empezar a etiquetar.</h1>
-          <p>
-            Escolle o encontro e o modo de traballo. A análise créase de forma
-            atómica coa estrutura de períodos xa preparada.
-          </p>
-        </div>
-      </section>
-
-      <ol className="flow-steps">
-        {steps.map((step, index) => (
-          <li
-            className={index === 0 ? 'flow-step flow-step-active' : 'flow-step'}
-            key={step.number}
-          >
-            <span className="flow-step-number">{step.number}</span>
-            <div>
-              <strong>{step.title}</strong>
-              <p>{step.text}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
-
-      <form className="analysis-setup" onSubmit={handleSubmit}>
-        <section className="state-card setup-card">
-          <div className="section-heading-inline">
-            <div>
-              <span className="eyebrow">Paso 1 · Partido</span>
-              <h2>Escolle o encontro</h2>
-            </div>
-            <span className="badge">{matches.length} dispoñibles</span>
-          </div>
-
-          {loading ? (
-            <div className="inline-loading" aria-live="polite">
-              <div className="spinner" aria-hidden="true" />
-              <span>Cargando calendario…</span>
-            </div>
-          ) : null}
-
-          {!loading && matches.length === 0 ? (
-            <div className="empty-state">
-              <strong>Non hai partidos dispoñibles.</strong>
-              <p>
-                Cando exista calendario oficial ou crees un partido persoal,
-                aparecerá aquí. A creación manual de partido é o seguinte paso do
-                fluxo.
-              </p>
-            </div>
-          ) : null}
-
-          {!loading && matches.length > 0 ? (
-            <div className="match-list">
-              {matches.map((match) => (
-                <MatchCard
-                  key={match.id}
-                  match={match}
-                  selected={match.id === selectedMatchId}
-                  onSelect={() => {
-                    setSelectedMatchId(match.id)
-                  }}
-                />
-              ))}
-            </div>
-          ) : null}
-        </section>
-
-        <section className="state-card setup-card">
-          <span className="eyebrow">Modo de captura</span>
-          <h2>Como vas analizar este partido?</h2>
-
-          <div className="mode-grid">
-            {modeOptions.map((option) => (
-              <label
-                className={
-                  mode === option.value
-                    ? 'mode-card mode-card-selected'
-                    : 'mode-card'
-                }
-                key={option.value}
-              >
-                <input
-                  type="radio"
-                  name="analysis-mode"
-                  value={option.value}
-                  checked={mode === option.value}
-                  onChange={() => {
-                    setMode(option.value)
-                  }}
-                />
-                <span>
-                  <strong>{option.title}</strong>
-                  <small>{option.description}</small>
-                </span>
-              </label>
-            ))}
-          </div>
-        </section>
-
-        {error ? (
-          <div className="form-error" role="alert">
-            <strong>Non puidemos continuar.</strong>
-            <span>{error}</span>
-          </div>
-        ) : null}
-
-        <div className="form-actions">
-          <div>
-            {selectedMatch ? (
-              <span className="selection-summary">
-                {selectedMatch.homeTeam.shortName ?? selectedMatch.homeTeam.name}{' '}
-                vs{' '}
-                {selectedMatch.awayTeam.shortName ?? selectedMatch.awayTeam.name}
-              </span>
-            ) : (
-              <span className="selection-summary">Escolle primeiro un partido</span>
-            )}
-          </div>
-
-          <button
-            className="button button-primary"
-            type="submit"
-            disabled={!selectedMatch || creating}
-          >
-            {creating ? 'Creando análise…' : 'Crear análise'}
-          </button>
-        </div>
-      </form>
+  return <div className="page-stack self-service-setup">
+    <header className="page-heading"><h1>Nova análise</h1><p>Escolle un partido ou prepara un persoal.</p></header>
+    <div className="workspace-step-strip" role="group" aria-label="Orixe do partido">
+      <button className={`workspace-step${path === 'existing' ? ' workspace-step-active' : ''}`} type="button" aria-pressed={path === 'existing'} disabled={locked} onClick={() => { setPath('existing'); setError(null) }}>Partido existente</button>
+      <button className={`workspace-step${path === 'new' ? ' workspace-step-active' : ''}`} type="button" aria-pressed={path === 'new'} disabled={locked} onClick={() => { setPath('new'); setError(null) }}>Crear partido</button>
     </div>
-  )
+    {path === 'existing' ? <section aria-label="Partidos dispoñibles">
+      {loading ? <p role="status">Cargando calendario…</p> : null}
+      {loadError ? <div className="form-error" role="alert">{loadError}<button type="button" className="button button-secondary" disabled={locked} onClick={() => setRetry(retry + 1)}>Recargar partidos</button></div> : null}
+      {!loading && !loadError && matches.length === 0 ? <div className="empty-state"><p>Aínda non hai partidos dispoñibles.</p>
+        <button type="button" className="button button-secondary" disabled={locked} onClick={() => setPath('new')}>Crear o primeiro partido</button></div> : null}
+      {matches.length > 0 ? <fieldset className="setup-existing-matches" disabled={locked}><legend>Escolle o encontro</legend><div className="match-list">
+        {matches.map((match) => <ExistingMatchOption key={match.id} match={match} selected={match.id === selectedMatchId} onSelect={() => setSelectedMatchId(match.id)} />)}
+      </div></fieldset> : null}
+    </section> : <div className="setup-teams">
+      <SetupTeamSelector label="Equipo local" selected={home} onSelect={setHome} userId={session?.user.id} busy={locked} onBusy={setBusy}
+        revision={catalogRevision} onCreated={() => setCatalogRevision((v) => v + 1)} />
+      <SetupTeamSelector label="Equipo visitante" selected={away} onSelect={setAway} userId={session?.user.id} busy={locked} onBusy={setBusy}
+        revision={catalogRevision} onCreated={() => setCatalogRevision((v) => v + 1)} />
+    </div>}
+    <form className="setup-match-form" onSubmit={(event) => { void submit(event) }}>
+      {path === 'new' ? <div className="setup-match-fields">
+        <label>Data e hora<input type="datetime-local" required value={date} disabled={locked} onChange={(e) => setDate(e.target.value)} />
+          <small>Hora local do teu dispositivo.</small></label>
+        <label>Etiqueta do encontro (opcional)<input maxLength={100} value={round} disabled={locked} onChange={(e) => setRound(e.target.value)} /></label>
+      </div> : null}
+      <fieldset className="setup-mode" disabled={locked}><legend>Modo de análise</legend>
+        <label><input type="radio" name="mode" value="post_match" checked={mode === 'post_match'} onChange={() => setMode('post_match')} />Desde vídeo</label>
+        <label><input type="radio" name="mode" value="live" checked={mode === 'live'} onChange={() => setMode('live')} />En directo</label>
+      </fieldset>
+      {sameTeam && path === 'new' ? <p role="alert">O equipo local e o visitante deben ser distintos.</p> : null}
+      {error ? <div className="form-error" role="alert">{error}</div> : null}
+      <div className="form-actions"><span className="selection-summary">A convocatoria prepárase no seguinte paso.</span>
+        <button className="button button-primary" type="submit" disabled={locked || (path === 'existing' ? loading || !selectedMatchId : !home || !away || sameTeam || !date)}>{creating ? 'Creando análise…' : 'Crear análise'}</button>
+      </div>
+    </form>
+  </div>
 }
