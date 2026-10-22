@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { PersistenceStatus, type SaveState } from './PersistenceStatus'
 import { updateAnalysisEvent } from '../data/event-editing'
 import { logQuickEvent, removeAnalysisEvent, rebuildInferredPossessions, reopenAnalysis } from '../data/tagging'
@@ -36,13 +36,31 @@ export function TaggingPanel({ workspace, onBack, onWorkspaceChanged, lifecycleM
     setVideoRequest((current) => ({ ...request, requestId: (current?.requestId ?? 0) + 1 }))
   }
   const [editingId, setEditingId] = useState<string | null>(null)
+  const editOrigin = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    if (editingId === null && editOrigin.current) {
+      editOrigin.current.focus()
+      editOrigin.current = null
+    }
+  }, [editingId])
+  const videoToggleRef = useRef<HTMLButtonElement>(null)
+  const returnToVideoToggle = useRef(false)
+  useEffect(() => {
+    if (returnToVideoToggle.current) {
+      videoToggleRef.current?.focus()
+      returnToVideoToggle.current = false
+    }
+  }, [videoVisible])
+  const videoToggle = !videoVisible ? <button ref={videoToggleRef} className="video-visibility-action" type="button" aria-expanded="false"
+    aria-controls="tagging-video-panel" onClick={() => { returnToVideoToggle.current = true; setVideoVisible(true) }}>Mostrar vídeo</button> : null
   const [possessionsNeedReview, setPossessionsNeedReview] = useState(false)
   const { saveState, events, loadingEvents, busy, error, notice, needsRefresh, refreshData, runTaggingMutation } =
     useTaggingEvents(workspace.id, onWorkspaceChanged, onSaveStateChange, onInteractionLockChange)
+  const eventsUnavailable = needsRefresh && events.length === 0
   const captureDisabled = busy || loadingEvents || needsRefresh || workspace.status === 'completed'
-  const timeline = <TaggingTimeline workspace={workspace} events={events} loadingEvents={loadingEvents} disabled={captureDisabled}
+  const timeline = <TaggingTimeline workspace={workspace} events={events} loadingEvents={loadingEvents} disabled={captureDisabled} activeEventId={editingId} unavailable={eventsUnavailable}
           onSeek={navigateVideo}
-          onEdit={(id) => { if (!captureDisabled) setEditingId(id) }}
+          onEdit={(id) => { if (!captureDisabled) { editOrigin.current = document.activeElement as HTMLElement; setEditingId(id) } }}
           onDelete={async (id) => {
             if (captureDisabled) return
             await runTaggingMutation(async () => { await removeAnalysisEvent(id); return 'Evento eliminado.' })
@@ -56,17 +74,17 @@ export function TaggingPanel({ workspace, onBack, onWorkspaceChanged, lifecycleM
             })
           }} />
   const eventForm = (editingId && workspace.status !== 'completed' ? <EventEditor key={editingId} eventId={editingId}
-          workspace={workspace} busy={busy} disabled={captureDisabled} onCancel={() => setEditingId(null)}
+          videoToggle={videoToggle} workspace={workspace} busy={busy} disabled={captureDisabled} onCancel={() => setEditingId(null)}
           onSave={(event, input) => runTaggingMutation(async () => {
             await updateAnalysisEvent(event, input)
             setPossessionsNeedReview(true)
             return 'Evento actualizado.'
-          })} /> : <QuickEventForm workspace={workspace} captureDisabled={captureDisabled} busy={busy}
+          })} /> : <QuickEventForm videoToggle={videoToggle} workspace={workspace} captureDisabled={captureDisabled} busy={busy}
           onSave={(input) => runTaggingMutation(async () => {
             await logQuickEvent(input)
             return input.foulDiscipline ? 'Falta e tarxeta gardadas.' : `Evento gardado: ${quickEventLabels[input.eventType]}.`
           })} />)
-  const scoreboard = <TaggingScoreboard workspace={workspace} events={events} loading={loadingEvents} unavailable={needsRefresh && events.length === 0} />
+  const scoreboard = <TaggingScoreboard workspace={workspace} events={events} loading={loadingEvents} unavailable={eventsUnavailable} />
   return (
     <div className="tagging-stack">
       {renderContext ? renderContext(scoreboard) : null}
@@ -116,12 +134,11 @@ export function TaggingPanel({ workspace, onBack, onWorkspaceChanged, lifecycleM
 
       {!renderContext ? scoreboard : null}
       {possessionsNeedReview ? <p role="status">Evento actualizado. Revisa e reconstrúe explicitamente as posesións inferidas; non se reconstruíron automaticamente.</p> : null}
-      <div className="tagging-toolbar"><h2 className="visually-hidden">{workspace.status === 'completed' ? 'Revisión de eventos' : 'Rexistro de eventos'}</h2>
-        <button className="button button-secondary" type="button" aria-expanded={videoVisible} aria-controls="tagging-video-panel"
-          onClick={() => setVideoVisible((visible) => !visible)}>{videoVisible ? 'Ocultar vídeo' : 'Mostrar vídeo'}</button></div>
+      <h2 className="visually-hidden">{workspace.status === 'completed' ? 'Revisión de eventos' : 'Rexistro de eventos'}</h2>
+      {workspace.status === 'completed' && videoToggle ? <div className="tagging-review-tools">{videoToggle}</div> : null}
       <div className={`tagging-layout${videoVisible ? ' tagging-layout-with-video' : ''}`}>
         {workspace.status === 'completed' ? timeline : eventForm}
-        {videoVisible ? <TaggingVideoPanel videos={workspace.videos} request={videoRequest} focusOnRequest={focusVideoOnRequest} onSelect={(id) => {
+        {videoVisible ? <TaggingVideoPanel visibilityControlRef={videoToggleRef} onHide={() => { returnToVideoToggle.current = true; setVideoVisible(false) }} videos={workspace.videos} request={videoRequest} focusOnRequest={focusVideoOnRequest} onSelect={(id) => {
           const video = workspace.videos.find((item) => item.id === id)
           const target = video ? buildVideoSeekTarget(video.url, 0, video.durationSeconds) : null
           if (video && target) navigateVideo({ ...target, videoId: video.id, title: video.title || 'Vídeo' }, false)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { getEventForEditing } from '../../data/event-editing'
 import { editingTitle, type EventForEditing } from '../../domain/event-editing'
 import type { AnalysisWorkspace } from '../../domain/analysis'
@@ -7,9 +7,10 @@ import { QuickEventForm } from './QuickEventForm'
 
 type Props = {
   eventId: string; workspace: AnalysisWorkspace; busy: boolean; disabled: boolean
+  videoToggle?: ReactNode
   onCancel: () => void; onSave: (event: EventForEditing, input: LogQuickEventInput) => Promise<boolean>
 }
-export function EventEditor({ eventId, workspace, busy, disabled, onCancel, onSave }: Props) {
+export function EventEditor({ eventId, workspace, busy, disabled, onCancel, onSave, videoToggle }: Props) {
   const [event, setEvent] = useState<EventForEditing | null>(null)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
@@ -27,7 +28,7 @@ export function EventEditor({ eventId, workspace, busy, disabled, onCancel, onSa
   </section>
   return <section aria-label={editingTitle(event)}>
     <p>Ao gardar, revisa as posesións inferidas. Os eventos ligados a posesións manuais requiren revisar esa asociación primeiro.</p>
-    <QuickEventForm initialEvent={event} workspace={workspace} busy={busy} captureDisabled={disabled}
+    <QuickEventForm videoToggle={videoToggle} initialEvent={event} workspace={workspace} busy={busy} captureDisabled={disabled}
       onCancel={onCancel} onSave={(input) => onSave(event, input)} />
   </section>
 }
