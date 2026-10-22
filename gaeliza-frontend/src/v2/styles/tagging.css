@@ -4,13 +4,13 @@
 .tagging-readonly-banner > div { display: grid; gap: 4px; }
 .tagging-readonly-banner span { color: var(--ink-soft); }
 .tagging-notice { border: 0; padding: 0; background: transparent; color: var(--ink-soft); }
-.tagging-scoreboard { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 16px; border-bottom: 1px solid var(--line); padding: 8px 0 20px; }
+.tagging-scoreboard { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 16px; border-bottom: 1px solid var(--line); padding: 8px 0 20px; }
 .tagging-score-team { display: grid; gap: 4px; }
 .tagging-score-team > span { font-size: 1rem; font-weight: 600; }
 .tagging-score-team > strong { font-size: clamp(1.8rem, 3vw, 2.4rem); line-height: 1.1; }
 .tagging-score-team small, .tagging-score-center strong { color: var(--ink-soft); font-size: .85rem; }
-.tagging-score-away { text-align: right; }
-.tagging-score-center { display: grid; gap: 4px; text-align: center; }
+.tagging-score-away { grid-column: 2; grid-row: 1; text-align: right; }
+.tagging-score-center { grid-column: 1 / -1; grid-row: 2; text-align: center; }
 .tagging-score-center .eyebrow { margin: 0; }
 .tagging-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .tagging-toolbar h2 { margin: 0; }
@@ -38,7 +38,7 @@
 .tagging-pitch-section { display: grid; gap: 8px; margin-top: 16px; }
 .tagging-pitch-section > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .tagging-pitch-section small { color: var(--ink-soft); font-size: .8rem; }
-.pitch-coordinate-control { display: grid; grid-template-columns: minmax(140px, 240px) minmax(120px, 220px); gap: 16px; align-items: end; }
+.pitch-coordinate-control { display: grid; grid-template-columns: minmax(240px, 420px) minmax(100px, 130px); gap: 16px; align-items: end; }
 .tagging-pitch { position: relative; display: block; width: 100%; aspect-ratio: 1.58 / 1; overflow: hidden; border: 1px solid var(--pitch-line); border-radius: var(--radius-sm); background: var(--pitch); cursor: crosshair; }
 .tagging-pitch:disabled { cursor: not-allowed; opacity: .65; }
 .pitch-halfway-line { position: absolute; inset: 0 auto 0 50%; width: 1px; background: var(--pitch-line); }
@@ -53,7 +53,7 @@
 .coordinate-clear { grid-column: 1 / -1; justify-self: start; min-height: 40px; border: 0; padding: 4px 0; background: transparent; color: var(--ink-soft); font-size: .85rem; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .tagging-save-button { width: auto; margin-top: 20px; min-width: 180px; margin-right: 12px; }
 .timeline-loading { display: flex; align-items: center; gap: 12px; min-height: 80px; color: var(--ink-soft); }
-.tagging-timeline-list { display: grid; max-height: 600px; overflow: auto; border-top: 1px solid var(--line); }
+.tagging-timeline-list { display: grid; border-top: 1px solid var(--line); }
 .timeline-event { display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; align-items: start; gap: 16px; border-bottom: 1px solid var(--line); padding: 12px 0; }
 .timeline-event-time { display: grid; gap: 2px; }
 .timeline-event-time strong { font-size: 1rem; }
@@ -91,3 +91,26 @@
 .event-coordinate-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 16px; }
 
 .native-video-player [role="alert"] { color: var(--danger); }
+
+/* Capture remains one operation; space follows fields and physical position. */
+.capture-fields-and-pitch { display: grid; gap: 16px; }
+.capture-fields, .event-coordinate-sections { min-width: 0; }
+.timeline-linked-cards { margin-left: 24px; padding-left: 12px; border-left: 2px solid var(--line); }
+.timeline-recipient { font-size: .85rem; color: var(--ink-soft); }
+@media (min-width: 1001px) {
+  .event-type-controls { position: sticky; top: 64px; z-index: 2; background: var(--paper); padding-top: 8px; }
+  .tagging-video-panel { position: sticky; top: 80px; }
+  .tagging-layout:not(.tagging-layout-with-video) .capture-fields-and-pitch { grid-template-columns: minmax(0, 1fr) minmax(360px, .85fr); gap: 24px; }
+  .tagging-fields-grid, .tagging-detail-grid, .tagging-participant-grid { margin-top: 12px; gap: 8px 12px; }
+}
+@media (max-width: 640px) {
+  .pitch-coordinate-control { grid-template-columns: 1fr; }
+  .timeline-linked-cards { margin-left: 8px; padding-left: 8px; }
+}
+
+@media (min-width: 1280px) {
+  .tagging-layout-with-video .capture-fields-and-pitch { grid-template-columns: minmax(0, 1fr) minmax(300px, .8fr); }
+  .capture-fields-and-pitch .pitch-coordinate-control { grid-template-columns: 1fr; max-width: 480px; gap: 8px; }
+  .capture-fields-and-pitch .coordinate-inputs { grid-template-columns: 1fr 1fr auto; }
+  .capture-fields-and-pitch .coordinate-clear { grid-column: auto; }
+}

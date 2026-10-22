@@ -35,6 +35,7 @@ export type AnalysisEventSummary = {
   recoveryMethod: string | null
   turnoverCause: string | null
   foulOutcome: string | null
+  relatedFoulEventId: string | null
   cardType: string | null
   kickoutLength: string | null
   kickoutResult: string | null
@@ -46,7 +47,10 @@ export type AnalysisEventSummary = {
   participants: { participantId: string; role: string; displayName: string; number: number | null }[]
 }
 
+export type FoulDiscipline = { cardType: 'yellow' | 'black' | 'red'; recipientId: string | null }
+
 export type LogQuickEventInput = {
+  foulDiscipline?: FoulDiscipline
   analysisId: string
   periodId: string
   teamId: string

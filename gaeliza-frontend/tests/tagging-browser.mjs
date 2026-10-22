@@ -117,8 +117,10 @@ test('tagging browser regressions', async (t) => {
       events.sort((a,b)=>a.second_in_period-b.second_in_period)
       return reply(route,event.event_id)
     }
-    if (url.pathname.endsWith('/rpc/log_event')) {
+    if (url.pathname.endsWith('/rpc/log_event') || url.pathname.endsWith('/rpc/log_foul_with_optional_card')) {
       const input = route.request().postDataJSON()
+      const composite=url.pathname.endsWith('/rpc/log_foul_with_optional_card')
+      if(composite) { assert.equal(input.p_card_type,null); input.p_event_type='foul' }
       writes.push(input); status = 'in_progress'
       events = [...events, { ...fact(`saved${writes.length}`, input.p_second_in_period), event_type: input.p_event_type,
         team_id: input.p_team_id, raw_x: input.p_x, raw_y: input.p_y,
@@ -128,7 +130,7 @@ test('tagging browser regressions', async (t) => {
         dribble_result: input.p_event_type === 'dribble' ? input.p_detail.result ?? null : null,
         restart_type: input.p_detail.restart_type ?? null,
       }].sort((a, b) => a.second_in_period - b.second_in_period)
-      return reply(route, `saved${writes.length}`)
+      return reply(route, composite ? {foul_event_id:`saved${writes.length}`,card_event_id:null} : `saved${writes.length}`)
     }
     if (url.pathname.endsWith('/rpc/rebuild_inferred_possessions')) { rebuilds++; return reply(route, 2) }
     if (url.pathname.endsWith('/events') && route.request().method() === 'DELETE') {
@@ -281,6 +283,7 @@ test('tagging browser regressions', async (t) => {
       assert.deepEqual(writes.at(-1).p_participants, [])
     }
   })
+  await page.getByRole('button', {name: /^Mostrar \d+ anteriores$/}).click()
   await t.test('edit loads the full event, cancel changes nothing, type cannot change',async()=>{
     await page.getByRole('button',{name:'Editar',exact:true}).first().click()
     await page.getByRole('button',{name:'Gardar cambios',exact:true}).waitFor()
