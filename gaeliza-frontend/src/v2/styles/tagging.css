@@ -4,16 +4,26 @@
 .tagging-readonly-banner > div { display: grid; gap: 4px; }
 .tagging-readonly-banner span { color: var(--ink-soft); }
 .tagging-notice { border: 0; padding: 0; background: transparent; color: var(--ink-soft); }
-.tagging-scoreboard { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 16px; border-bottom: 1px solid var(--line); padding: 8px 0 20px; }
-.tagging-score-team { display: grid; gap: 4px; }
-.tagging-score-team > span { font-size: 1rem; font-weight: 600; }
-.tagging-score-team > strong { font-size: clamp(1.8rem, 3vw, 2.4rem); line-height: 1.1; }
-.tagging-score-team small, .tagging-score-center strong { color: var(--ink-soft); font-size: .85rem; }
-.tagging-score-away { grid-column: 2; grid-row: 1; text-align: right; }
-.tagging-score-center { grid-column: 1 / -1; grid-row: 2; text-align: center; }
-.tagging-score-center .eyebrow { margin: 0; }
+.tagging-scoreboard { padding: 8px 0; min-width: 0; }
+.tagging-match-title { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 24px; max-width: 960px; margin: 0 auto; font-size: 1.25rem; font-weight: 600; letter-spacing: normal; }
+.tagging-match-home { text-align: right; }
+.tagging-match-home, .tagging-match-away { overflow-wrap: anywhere; }
+.tagging-match-score { display: flex; align-items: start; gap: 12px; font-variant-numeric: tabular-nums; }
+.tagging-match-score > span:not(.tagging-score-separator) { display: grid; gap: 4px; text-align: center; }
+.tagging-match-score strong { font-size: 2.25rem; line-height: 1.1; font-weight: 700; }
+.tagging-match-score small { font-size: .8rem; font-weight: 400; }
+.tagging-score-separator { font-size: 1.5rem; line-height: 1.5; color: var(--ink-soft); }
+.tagging-score-caption { margin: 8px 0 0; text-align: center; color: var(--ink-soft); font-size: .8rem; }
+@media (max-width: 600px) {
+  .tagging-match-title { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; font-size: 1rem; }
+  .tagging-match-home, .tagging-match-away { text-align: center; }
+  .tagging-match-away { grid-column: 2; grid-row: 1; }
+  .tagging-match-score { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
+  .tagging-match-score strong { font-size: 2rem; }
+}
 .tagging-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .tagging-toolbar h2 { margin: 0; }
+.tagging-toolbar > button { margin-left: auto; }
 .tagging-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
 .tagging-layout-with-video { grid-template-columns: minmax(0, 1.7fr) minmax(300px, .9fr); }
 .tagging-capture-card { border-top: 0; padding-top: 0; min-width: 0; }
@@ -74,9 +84,6 @@
 .additional-event-roles p { font-size: .85rem; }
 @media (max-width: 1000px) { .tagging-layout-with-video { grid-template-columns: 1fr; } .tagging-video-panel { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 16px; max-width: 720px; } }
 @media (max-width: 640px) {
-  .tagging-scoreboard { gap: 8px; }
-  .tagging-score-team > span { font-size: .85rem; }
-  .tagging-score-center .eyebrow { font-size: .8rem; }
   .tagging-fields-grid, .tagging-detail-grid, .tagging-participant-grid { grid-template-columns: 1fr; }
   .pitch-coordinate-control { grid-template-columns: 1fr; }
   .tagging-readonly-banner, .possession-inference-box { align-items: start; flex-direction: column; }

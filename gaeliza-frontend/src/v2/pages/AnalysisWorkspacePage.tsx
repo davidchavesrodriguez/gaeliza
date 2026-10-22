@@ -1,5 +1,5 @@
 import { TeamRoster } from '../components/TeamRoster'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { completeAnalysis } from '../data/analyses'
 import { reopenAnalysis } from '../data/tagging'
@@ -198,50 +198,56 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
     )
   }
 
+  const currentWorkspace = workspace
   const teams = [workspace.homeTeam, workspace.awayTeam]
+
+  // Tagging supplies the scoreboard from its existing event read; the page owns
+  // the same navigation/lifecycle chrome for every step, without another query.
+  function renderContext(scoreboard?: ReactNode) {
+    return <header className="workspace-context">
+      <div className="workspace-toolbar">
+        <Link className="text-link" to="/app">← Inicio</Link>
+        <p className="workspace-match-meta">{formatMatchDate(currentWorkspace.scheduledAt)} · {currentWorkspace.mode === 'live' ? 'En directo' : 'Desde vídeo'}</p>
+        <PersistenceStatus state={saveState} />
+      </div>
+      {scoreboard ?? <h1 className="workspace-match-name">{currentWorkspace.homeTeam.shortName ?? currentWorkspace.homeTeam.name} <span>—</span> {currentWorkspace.awayTeam.shortName ?? currentWorkspace.awayTeam.name}</h1>}
+      <div className="workspace-navigation">
+        <nav className="workspace-step-strip" aria-label="Seccións da análise">
+          {([['roster','Convocatoria'],['video','Vídeo e sincronización'],['tagging','Tagging']] as const).map(([step,label]) =>
+            <button key={step} type="button" className={`workspace-step${activeStep === step ? ' workspace-step-active' : ''}`}
+              aria-current={activeStep === step ? 'page' : undefined} disabled={busy || taggingLocked}
+              onClick={() => { setError(null); setActiveStep(step) }}>{label}</button>)}
+        </nav>
+        <div className="workspace-lifecycle">
+          <span className={`workspace-analysis-status status-${currentWorkspace.status}`}>{analysisStatusLabels[currentWorkspace.status]}</span>
+          {currentWorkspace.status === 'completed' ? <button className="workspace-lifecycle-action" type="button"
+            disabled={busy || loading || taggingLocked || requiresReload}
+            onClick={() => { void runMutation(() => reopenAnalysis(currentWorkspace.id), true) }}>Reabrir análise</button> :
+            <button className="workspace-lifecycle-action" type="button" disabled={busy || loading || taggingLocked || requiresReload}
+              onClick={() => { setError(null); setConfirmingComplete(true) }}>Finalizar análise</button>}
+        </div>
+      </div>
+      {currentWorkspace.status === 'completed' ? <p className="completed-summary">Análise finalizada. Os datos consérvanse; podes revisar a timeline e navegar polo vídeo. Reábrea para facer cambios.</p> : null}
+      {error ? <div className="form-error" role="alert">
+        <strong>Non puidemos completar a acción.</strong><span>{error}</span>
+        {requiresReload ? <button className="button button-secondary" type="button" disabled={busy} onClick={() => setRevision((value) => value + 1)}>Recargar datos</button> : null}
+      </div> : null}
+    </header>
+  }
 
   return (
     <div className="page-stack workspace-page">
-      <div className="workspace-toolbar">
-        <Link className="text-link" to="/app">← Inicio</Link>
-        <PersistenceStatus state={saveState} />
-      </div>
-      <header className="analysis-header-card">
-        <div><h1>{workspace.homeTeam.shortName ?? workspace.homeTeam.name} <span>—</span> {workspace.awayTeam.shortName ?? workspace.awayTeam.name}</h1>
-          <p>{formatMatchDate(workspace.scheduledAt)} · {workspace.mode === 'live' ? 'En directo' : 'Desde vídeo'}</p></div>
-        <div className="workspace-lifecycle">
-          <span className={`badge status-${workspace.status}`}>{analysisStatusLabels[workspace.status]}</span>
-          {workspace.status === 'completed' ? <button className="button button-primary" type="button"
-            disabled={busy || loading || taggingLocked || requiresReload}
-            onClick={() => { void runMutation(() => reopenAnalysis(workspace.id), true) }}>Reabrir análise</button> :
-            <button className="button button-secondary" type="button" disabled={busy || loading || taggingLocked || requiresReload}
-              onClick={() => { setError(null); setConfirmingComplete(true) }}>Finalizar análise</button>}
-        </div>
-      </header>
-      {workspace.status === 'completed' ? <p className="completed-summary">Análise finalizada. Os datos consérvanse; podes revisar a timeline e navegar polo vídeo. Reábrea para facer cambios.</p> : null}
-      <nav className="workspace-step-strip" aria-label="Seccións da análise">
-        {([['roster','Convocatoria'],['video','Vídeo e sincronización'],['tagging','Tagging']] as const).map(([step,label]) =>
-          <button key={step} type="button" className={`workspace-step${activeStep === step ? ' workspace-step-active' : ''}`}
-            aria-current={activeStep === step ? 'page' : undefined} disabled={busy || taggingLocked}
-            onClick={() => { setError(null); setActiveStep(step) }}>{label}</button>)}
-      </nav>
+      {activeStep !== 'tagging' ? renderContext() : null}
       {confirmingComplete ? <CompleteAnalysisDialog busy={busy} error={error} onCancel={() => setConfirmingComplete(false)}
         onConfirm={() => { void runMutation(() => completeAnalysis(workspace.id), true).then((saved) => {
           if (saved) { setConfirmingComplete(false); setActiveStep('tagging') }
         }) }} /> : null}
-      {error ? (
-        <div className="form-error" role="alert">
-          <strong>Non puidemos completar a acción.</strong>
-          <span>{error}</span>
-          {requiresReload ? <button className="button button-secondary" type="button" disabled={busy} onClick={() => setRevision((value) => value + 1)}>Recargar datos</button> : null}
-        </div>
-      ) : null}
-
       {activeStep === 'tagging' ? (
         <TaggingPanel
           key={workspace.id}
           workspace={workspace}
           lifecycleManaged
+          renderContext={renderContext}
           onSaveStateChange={setSaveState}
           onInteractionLockChange={setTaggingLocked}
           onBack={() => {

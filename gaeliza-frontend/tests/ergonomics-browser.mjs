@@ -91,7 +91,7 @@ test('foul discipline and capture ergonomics',async(t)=>{
   assert.equal(await page.locator('.timeline-event').count(),16)
   await page.getByRole('button',{name:'Mostrar só os recentes'}).click()
   assert.equal(await page.locator('.timeline-event').count(),8)
-  assert.match(await page.locator('.tagging-score-center').innerText(),/16 eventos/)
+  assert.match(await page.getByRole('region',{name:'Contexto do partido',exact:true}).innerText(),/16 eventos/)
  })
  await t.test('desktop controls and video stay below header; pitch enlarged; video hide frees width',async()=>{
   assert.equal(await page.locator('.event-type-button').count(),13)

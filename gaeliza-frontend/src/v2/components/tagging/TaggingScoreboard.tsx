@@ -21,29 +21,24 @@ function scoreForTeam(events: AnalysisEventSummary[], teamId: string) {
 }
 
 
-export function TaggingScoreboard({ workspace, events }: { workspace: AnalysisWorkspace; events: AnalysisEventSummary[] }) {
+export function TaggingScoreboard({ workspace, events, loading = false, unavailable = false }: {
+  workspace: AnalysisWorkspace; events: AnalysisEventSummary[]; loading?: boolean; unavailable?: boolean
+}) {
   const homeScore = scoreForTeam(events, workspace.homeTeam.id)
   const awayScore = scoreForTeam(events, workspace.awayTeam.id)
-  return (
-      <section className="tagging-scoreboard">
-        <div className="tagging-score-team">
-          <span>{workspace.homeTeam.shortName ?? workspace.homeTeam.name}</span>
-          <strong>
-            {homeScore.goals}-{String(homeScore.points).padStart(2, '0')}
-          </strong>
-          <small>{homeScore.total} pts</small>
-        </div>
-        <div className="tagging-score-center">
-          <strong>{events.length} {events.length === 1 ? 'evento' : 'eventos'}</strong>
-        </div>
-        <div className="tagging-score-team tagging-score-away">
-          <span>{workspace.awayTeam.shortName ?? workspace.awayTeam.name}</span>
-          <strong>
-            {awayScore.goals}-{String(awayScore.points).padStart(2, '0')}
-          </strong>
-          <small>{awayScore.total} pts</small>
-        </div>
-      </section>
-
-  )
+  const ready = !loading && !unavailable
+  return <section className="tagging-scoreboard" aria-label="Contexto do partido">
+    <h1 className="tagging-match-title">
+      <span className="tagging-match-home">{workspace.homeTeam.shortName ?? workspace.homeTeam.name}</span>
+      <span className="tagging-match-score" aria-label="Marcador analítico">
+        <span><strong>{ready ? `${homeScore.goals}-${String(homeScore.points).padStart(2, '0')}` : '—'}</strong>
+          <small>{ready ? `${homeScore.total} pts` : '—'}</small></span>
+        <span className="tagging-score-separator" aria-hidden="true">—</span>
+        <span><strong>{ready ? `${awayScore.goals}-${String(awayScore.points).padStart(2, '0')}` : '—'}</strong>
+          <small>{ready ? `${awayScore.total} pts` : '—'}</small></span>
+      </span>
+      <span className="tagging-match-away">{workspace.awayTeam.shortName ?? workspace.awayTeam.name}</span>
+    </h1>
+    <p className="tagging-score-caption">Marcador analítico · {loading ? 'Cargando eventos…' : unavailable ? 'Eventos non dispoñibles' : `${events.length} ${events.length === 1 ? 'evento' : 'eventos'}`}</p>
+  </section>
 }

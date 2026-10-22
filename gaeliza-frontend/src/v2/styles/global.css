@@ -92,7 +92,7 @@ fieldset { min-width: 0; }
 .brand { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--ink); font-size: 1.15rem; font-weight: 750; text-decoration: none; }
 .brand-mark { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid var(--accent); border-radius: var(--radius-sm); color: var(--accent); }
 .app-frame { min-height: 100vh; }
-.app-header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--space-6); min-height: 64px; padding: var(--space-2) max(24px, calc((100% - 1480px) / 2)); border-bottom: 1px solid var(--line); background: var(--paper); }
+.app-header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--space-6); min-height: 56px; padding: 4px max(24px, calc((100% - 1480px) / 2)); border-bottom: 1px solid var(--line); background: var(--paper); }
 .app-nav { display: flex; align-items: center; gap: var(--space-2); }
 .app-nav a { color: var(--ink-soft); padding: .5rem .7rem; text-decoration: none; border-bottom: 2px solid transparent; }
 .app-nav a.active { color: var(--accent); border-color: var(--accent); }
@@ -152,9 +152,10 @@ fieldset { min-width: 0; }
 .confirmation-dialog::backdrop { background: var(--overlay); }
 .dialog-actions { display: flex; justify-content: end; gap: 12px; flex-wrap: wrap; }
 @media (max-width: 780px) {
-  .app-header { flex-wrap: wrap; gap: 8px 16px; padding: 12px 16px; }
+  .app-header { position: static; flex-wrap: wrap; gap: 4px 16px; padding: 8px 16px; }
   .app-nav { order: 3; width: 100%; }
-  .session-chip { display: none; }
+  .app-header-tools { gap: 8px; flex-wrap: wrap; justify-content: end; }
+  .session-chip { font-size: .75rem; }
   .app-content { width: calc(100% - 32px); padding-top: 24px; }
   .landing-intro, .landing-context { grid-template-columns: 1fr; gap: 24px; padding: 32px 0; }
   .landing-method { border-left: 0; border-top: 1px solid var(--line); padding: 24px 0 0; }
@@ -171,3 +172,5 @@ fieldset { min-width: 0; }
   .analysis-list-row .button { justify-self: start; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
