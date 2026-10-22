@@ -59,7 +59,9 @@ Escala 4, 8, 12, 16, 24, 32 y 48 px; tokens `--space-1` a `--space-7`.
 Separación de secciones 24–32 px; filas 12–16 px; campos relacionados 8–12 px.
 Radius `--radius-sm: 3px`, `--radius: 6px`; máximo habitual 8 px. Campo rectangular.
 Pills solo en estado/filtro/toggle compacto, nunca en todas las acciones.
-Borde 1 px. Preferir divisor a un contenedor completo. `--shadow: none`; únicamente
+Borde 1 px. Preferir divisor a un contenedor completo. Los controles usan
+`--control-line` (#627985 dark / #7e919c light) para distinguirlos con contraste
+no textual suficiente; los divisores usan `--line`. `--shadow: none`; únicamente
 un diálogo modal puede separarse del fondo mediante overlay funcional oscuro.
 
 ## Surface hierarchy y composición
@@ -117,8 +119,10 @@ Reinicios (saque de porta, reinicio); Disciplina (falta, tarxeta); Cambios
 (substitución, cambio de porteiro). Trece tipos accesibles en desktop con botones
 reales y `aria-pressed`, selección inequívoca. Sin trece cards ni carrusel oculto.
 Formulario activo reutilizado para captura/edición, identidad física inmutable.
-Saque de porta nuevo: origen no solicitado y payload null/null; destino opcional,
-incluido 0/0. Conservar coordenadas históricas si se edita un evento existente.
+Saque de porta, en captura y edición: origen no solicitado y payload null/null;
+destino opcional, incluido 0/0. Al editar un saque con origen anterior, la nueva
+escritura lo deja en null/null; decisión confirmada por el usuario (datos de prueba).
+No se realiza una limpieza masiva de registros ni cambia el schema.
 
 Desktop: controles/formulario ocupan la mayor parte, vídeo secundario colapsable;
 al ocultarlo se recupera el ancho. Timeline como lista de filas compactas posterior
