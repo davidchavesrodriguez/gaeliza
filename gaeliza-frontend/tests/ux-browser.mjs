@@ -1,11 +1,12 @@
 // Product lifecycle/visual smoke with real pages and data modules; all network
 // data is local, synthetic and scoped by the same query filters as production.
 import assert from 'node:assert/strict'
-import { mkdir, readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import test from 'node:test'
 import { contrastRatio } from './helpers/contrast.mjs'
 import { startBrowserHarness } from './helpers/browser-harness.mjs'
 const screenshotDir=process.env.UX_SCREENSHOT_DIR
+const shellScreenshotDir=process.env.SHELL_SCREENSHOT_DIR
 const session={user:{id:'fixture-owner',is_anonymous:true}}
 const source=`
   import React from 'react'
@@ -57,7 +58,7 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
     {id:'away2',team_id:'away',player_id:null,display_name_snapshot:'Xogador visitante 2',number:2,starter:true,initial_goalkeeper:false,position:'Defender'},
   ]]))
   const writes=[]
-  let empty=false,failComplete=false,holdWrite=null
+  let empty=false,failComplete=false,holdWrite=null,failWorkspaceRead=false,holdWorkspaceRead=null,failEvents=false
   const media=await readFile(new URL('fixtures/tagging.webm',import.meta.url))
   const reply=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)})
   const ownerId=(url)=>url.searchParams.get('analysis_id')?.slice(3)
@@ -90,6 +91,8 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
           match:{scheduled_at:'2026-10-22T15:00:00Z',home:{name:home.name},away:{name:away.name}},
           event_count:[{count:events.get(item.id).length}],videos:[{count:item.id==='draft'?0:3}]})))
       }
+      if(holdWorkspaceRead)await holdWorkspaceRead
+      if(failWorkspaceRead)return reply(route,{message:'Fixture workspace unavailable'},400)
       const id=url.searchParams.get('id').slice(3),item=fixtures.find(item=>item.id===id)
       return reply(route,{...item,mode:'post_match',match_id:`match-${id}`,match:{id:`match-${id}`,scheduled_at:'2026-10-22T15:00:00Z',home_team:home,away_team:away}})
     }
@@ -110,7 +113,7 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
       {id:'external',url:'https://example.test/watch?token=original',provider:null,title:'Fonte externa',duration_seconds:null,sort_order:2},
     ])
     if(url.pathname.endsWith('/video_sync_points'))return reply(route,ownerId(url)==='draft'?[]:['direct','youtube','external'].map(videoId=>({id:videoId,analysis_video_id:videoId,analysis_period_id:`${ownerId(url)}-period`,video_second:10,second_in_period:0})))
-    if(url.pathname.endsWith('/analysis_event_facts'))return reply(route,events.get(ownerId(url)))
+    if(url.pathname.endsWith('/analysis_event_facts'))return failEvents?reply(route,{message:'Fixture events unavailable'},400):reply(route,events.get(ownerId(url)))
     if(url.pathname.endsWith('/rpc/log_event')){
       const input=request.postDataJSON();writes.push(input)
       const row=fact(`event-${writes.length}`,input.p_analysis_id,input.p_event_type,{raw_x:input.p_x,raw_y:input.p_y,
@@ -128,6 +131,20 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
     if(await page.locator('video').count())await page.waitForFunction(()=>{const video=document.querySelector('video');return video.readyState>=2&&!video.seeking})
     await page.mouse.move(0,0)
     await page.screenshot({path:`${screenshotDir}/${name}.png`,fullPage:true,animations:'disabled'})
+  }
+  async function shellScreenshot(name){
+    if(!shellScreenshotDir)return
+    await mkdir(shellScreenshotDir,{recursive:true})
+    await page.evaluate(()=>{document.activeElement?.blur();scrollTo(0,0)})
+    await page.mouse.move(0,0)
+    await page.screenshot({path:`${shellScreenshotDir}/${name}.png`,fullPage:true,animations:'disabled'})
+  }
+  async function shellGeometry(label){
+    const result=await page.evaluate(()=>({header:document.querySelector('.app-header').getBoundingClientRect().height,
+      context:document.querySelector('.workspace-context').getBoundingClientRect().height,
+      overflow:document.documentElement.scrollWidth>innerWidth}))
+    assert.equal(result.overflow,false,`${label}: no horizontal overflow`)
+    return {label,...result}
   }
   async function checkContrast(){
     const pairs=[['ink','paper',4.5],['ink-soft','surface',4.5],['accent','paper',4.5],['on-accent','accent',4.5],['danger','surface',4.5],['warning','surface',4.5],['info','surface',4.5],['control-line','surface',3]]
@@ -230,6 +247,55 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
     await screenshot('tagging-mobile-dark')
     await page.setViewportSize({width:1440,height:1000})
   })
+  await t.test('workspace shell has one match heading, secondary URL navigation, accurate score and responsive long names',async()=>{
+    await page.setViewportSize({width:1440,height:900})
+    const nav=page.getByRole('navigation',{name:'Seccións da análise'})
+    const geometry=[]
+    for(const [step,label,shot]of [['roster','Convocatoria','roster-desktop-dark'],['video','Vídeo e sincronización','video-desktop-dark'],['tagging','Tagging','tagging-desktop-dark']]){
+      await nav.getByRole('button',{name:label,exact:true}).click()
+      await page.waitForURL(url=>url.searchParams.get('step')===step)
+      await nav.locator('[aria-current=page]').filter({hasText:label}).waitFor()
+      assert.equal(new URL(page.url()).searchParams.get('step'),step)
+      assert.equal(await nav.getByRole('button',{name:label,exact:true}).getAttribute('aria-current'),'page')
+      if(step==='tagging')await idle()
+      assert.equal(await page.getByRole('heading',{level:1}).count(),1)
+      await page.getByRole('button',{name:'Finalizar análise',exact:true}).waitFor()
+      geometry.push(await shellGeometry(step));await shellScreenshot(shot)
+    }
+    const normal=geometry.at(-1)
+    assert.ok(normal.header>=48&&normal.header<=56)
+    assert.ok(normal.context>=180&&normal.context<=210,`context height ${normal.context}`)
+    const score=page.getByLabel('Marcador analítico',{exact:true})
+    assert.match(await score.textContent(),/0-01.*1 pts.*0-00.*0 pts/s)
+    assert.equal(await page.getByRole('heading',{name:'Rexistro de eventos',exact:true}).count(),1)
+    await page.getByRole('button',{name:'Cambiar a tema claro'}).click()
+    assert.equal((await shellGeometry('light')).context,normal.context)
+    await shellScreenshot('tagging-desktop-light')
+    await page.getByRole('button',{name:'Cambiar a tema escuro'}).click()
+    await page.setViewportSize({width:1366,height:768});geometry.push(await shellGeometry('1366'));await shellScreenshot('tagging-1366-dark')
+    for(const [width,height]of [[768,1024],[390,844],[320,568]]){
+      await page.setViewportSize({width,height});geometry.push(await shellGeometry(String(width)))
+      await page.getByText('As accións gárdanse ao confirmalas',{exact:true}).waitFor()
+      await page.getByText('Modo invitado',{exact:true}).waitFor()
+      if(width<768)await shellScreenshot(`tagging-${width}-dark`)
+    }
+    const original=[home.name,away.name],originalEvents=[...events.get('ongoing')]
+    home.name='Asociación Deportiva de Fútbol Gaélico da Costa Atlántica'
+    away.name='Clube Universitario de Fútbol Gaélico de Santiago de Compostela'
+    events.get('ongoing').push(fact('goal-fixture','ongoing','shot',{team_id:'away',shot_result:'goal',score_value:3}))
+    await page.setViewportSize({width:1440,height:900});await page.reload();await idle()
+    await page.getByRole('heading',{level:1}).getByText(home.name,{exact:true}).waitFor()
+    assert.match(await score.textContent(),/0-01.*1 pts.*1-00.*3 pts/s)
+    geometry.push(await shellGeometry('long-desktop'));await shellScreenshot('long-names-desktop-dark')
+    await page.setViewportSize({width:320,height:568});geometry.push(await shellGeometry('long-320'))
+    await shellScreenshot('long-names-320-dark')
+    await page.evaluate(()=>document.documentElement.style.fontSize='200%')
+    await shellGeometry('long-320-text-200')
+    await page.evaluate(()=>document.documentElement.style.fontSize='')
+    home.name=original[0];away.name=original[1];events.set('ongoing',originalEvents)
+    await page.setViewportSize({width:1440,height:900});await page.reload();await idle()
+    if(shellScreenshotDir)await writeFile(`${shellScreenshotDir}/measurements.json`,JSON.stringify(geometry,null,2)+'\n')
+  })
   await t.test('completion requires confirmation; Escape cancels without a write and restores focus',async()=>{
     const before=writes.length,button=page.getByRole('button',{name:'Finalizar análise',exact:true})
     await button.click();await page.getByRole('dialog').waitFor()
@@ -239,6 +305,7 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
     assert.equal(await button.evaluate(node=>node===document.activeElement),true)
   })
   await t.test('failed completion shows a real save error and keeps the analysis editable',async()=>{
+    const statusBefore=await page.locator('.workspace-toolbar [role=status]').boundingBox()
     failComplete=true
     await page.getByRole('button',{name:'Finalizar análise',exact:true}).click()
     await page.getByRole('button',{name:'Confirmar finalización'}).click()
@@ -247,13 +314,19 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
     assert.equal(fixtures[0].status,'in_progress')
     await page.getByRole('button',{name:'Seguir analizando'}).click()
     await page.getByText('Erro ao gardar',{exact:true}).waitFor()
+    const statusAfter=await page.locator('.workspace-toolbar [role=status]').boundingBox()
+    assert.equal(statusAfter.y,statusBefore.y);assert.equal(statusAfter.height,statusBefore.height)
+    await shellScreenshot('mutation-error-desktop-dark')
     failComplete=false
   })
   await t.test('pending/save confirmation are real; completed blocks mutations but retains timeline/video',async()=>{
+    const statusBeforePending=await page.locator('.workspace-toolbar [role=status]').boundingBox()
     let release;holdWrite=new Promise(resolve=>{release=resolve})
     await page.getByRole('button',{name:'Finalizar análise',exact:true}).click()
     await page.getByRole('button',{name:'Confirmar finalización'}).click()
     await page.getByText('Gardando…',{exact:true}).waitFor()
+    const statusPending=await page.locator('.workspace-toolbar [role=status]').boundingBox()
+    assert.deepEqual(statusPending,statusBeforePending)
     assert.equal(await page.getByRole('button',{name:'Finalizando…'}).isDisabled(),true)
     release();holdWrite=null
     await page.getByRole('dialog').waitFor({state:'hidden'})
@@ -266,6 +339,8 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
     await page.locator('.timeline-event').first().getByRole('button',{name:/Ir ao vídeo: Cámara principal/}).click()
     await page.waitForFunction(()=>Math.abs(document.querySelector('video')?.currentTime-10)<.1)
     await screenshot('workspace-completed-dark')
+    assert.equal(await page.getByRole('spinbutton',{name:/Tempo/}).count(),0)
+    await shellScreenshot('completed-desktop-dark')
   })
   await t.test('return Home shows the completed analysis; revisiting and reopening restores capture',async()=>{
     await page.getByRole('link',{name:'← Inicio',exact:true}).click()
@@ -275,6 +350,34 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
     await page.getByRole('button',{name:'Reabrir análise',exact:true}).click();await idle()
     assert.equal(fixtures[0].status,'in_progress')
     assert.equal(await page.getByRole('button',{name:'Finalizar análise',exact:true}).isEnabled(),true)
+  })
+  await t.test('shell retains committed-write reload errors, initial loading/errors and unknown score without events',async()=>{
+    failWorkspaceRead=true
+    await page.getByRole('button',{name:'Finalizar análise',exact:true}).click()
+    await page.getByRole('button',{name:'Confirmar finalización'}).click()
+    await page.getByRole('dialog').waitFor({state:'hidden'})
+    await page.getByRole('alert').getByText(/A acción gardouse, pero fallou a recarga/).waitFor()
+    await page.getByText('Gardado',{exact:true}).waitFor()
+    assert.equal(await page.getByRole('button',{name:'Finalizar análise',exact:true}).isDisabled(),true)
+    await shellScreenshot('requires-reload-desktop-dark')
+    failWorkspaceRead=false;await page.getByRole('button',{name:'Recargar datos',exact:true}).click()
+    await page.getByRole('button',{name:'Reabrir análise',exact:true}).waitFor()
+    assert.equal(await page.locator('.tagging-save-button').count(),0)
+    failWorkspaceRead=true;await page.reload()
+    await page.getByRole('heading',{name:'Non puidemos abrir esta análise.'}).waitFor()
+    await page.getByText(/Fixture workspace unavailable/).waitFor()
+    await shellScreenshot('load-error-desktop-dark')
+    let release;holdWorkspaceRead=new Promise(resolve=>{release=resolve})
+    failWorkspaceRead=false;await page.getByRole('button',{name:'Reintentar',exact:true}).click()
+    await page.getByText('Cargando o espazo de análise…',{exact:true}).waitFor()
+    await shellScreenshot('loading-desktop-dark');release();holdWorkspaceRead=null
+    await page.getByRole('button',{name:'Reabrir análise',exact:true}).waitFor()
+    failEvents=true;await page.reload()
+    await page.getByRole('alert').getByText(/Fixture events unavailable/).waitFor()
+    assert.match(await page.getByLabel('Marcador analítico',{exact:true}).textContent(),/—/)
+    assert.doesNotMatch(await page.getByLabel('Marcador analítico',{exact:true}).textContent(),/0-00/)
+    failEvents=false;await page.getByRole('button',{name:'Recargar datos',exact:true}).click()
+    await page.getByText(/Marcador analítico · 2 eventos/).waitFor()
   })
   await t.test('empty dashboard is functional and landing contains no invented metrics or feature-card grid',async()=>{
     empty=true;await page.goto(origin+'/app')

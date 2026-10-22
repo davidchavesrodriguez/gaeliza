@@ -1,18 +1,33 @@
 .workspace-page { gap: 16px; }
-.workspace-toolbar { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
-.persistence-status { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-soft); font-size: .85rem; }
-.persistence-saved { color: var(--accent); }
+.workspace-context { display: grid; gap: 8px; min-width: 0; padding-bottom: 8px; }
+.workspace-toolbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; min-width: 0; }
+.workspace-toolbar > .text-link { color: var(--ink-soft); font-size: .85rem; font-weight: 400; }
+.workspace-match-meta { margin: 0; color: var(--ink-soft); font-size: .8rem; }
+.persistence-status { display: inline-flex; align-items: center; color: var(--ink-soft); font-size: .8rem; min-height: 24px; }
+.workspace-toolbar .persistence-status { margin-left: auto; justify-content: end; min-width: 250px; }
 .persistence-pending { color: var(--info); }
 .persistence-error { color: var(--danger); }
-.analysis-header-card { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.analysis-header-card h1 { font-size: clamp(1.4rem, 2.3vw, 1.9rem); }
-.analysis-header-card h1 span { color: var(--ink-soft); font-weight: 400; }
-.analysis-header-card p { margin: 0; font-size: .9rem; }
-.workspace-lifecycle { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.workspace-match-name { margin: 8px 0; font-size: clamp(1.25rem, 2.3vw, 1.65rem); overflow-wrap: anywhere; }
+.workspace-match-name > span { color: var(--ink-soft); font-weight: 400; }
+.workspace-navigation { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.workspace-lifecycle { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+.workspace-analysis-status { color: var(--ink-soft); font-size: .8rem; }
+.workspace-analysis-status.status-completed { color: var(--ink); font-weight: 600; }
+.workspace-lifecycle-action { min-height: 44px; border: 0; padding: 8px 0 8px 8px; background: transparent; color: var(--ink-soft); font-size: .85rem; text-decoration: underline; text-underline-offset: 3px; }
+.workspace-lifecycle-action:hover:not(:disabled) { color: var(--ink); }
 .workspace-step-strip { display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
-.workspace-step { padding: 12px 16px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.workspace-step { min-height: 44px; padding: 8px 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink-soft); cursor: pointer; }
 .workspace-step-active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
-.completed-summary { margin: 0; padding: 12px 16px; border-left: 3px solid var(--info); background: var(--surface); font-size: .9rem; }
+.workspace-navigation .workspace-step-strip { border-bottom: 0; }
+.completed-summary { margin: 0; color: var(--ink-soft); font-size: .85rem; }
+@media (max-width: 780px) {
+  .workspace-toolbar { gap: 4px 12px; }
+  .workspace-toolbar .persistence-status { min-width: 0; flex-basis: 100%; justify-content: start; margin-left: 0; }
+  .workspace-match-meta { overflow-wrap: anywhere; }
+  .workspace-navigation { gap: 0; }
+  .workspace-lifecycle { width: 100%; margin-left: 0; justify-content: space-between; }
+  .workspace-context .workspace-step { padding: 8px; font-size: .85rem; }
+}
 .workspace-fields { display: grid; gap: 24px; min-width: 0; padding: 0; margin: 0; border: 0; }
 .roster-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
 .roster-team-card { min-width: 0; }
@@ -38,8 +53,8 @@
 .workspace-next-copy { display: grid; gap: 4px; flex: 1; }
 .workspace-next-copy small { font-size: .85rem; }
 @media (max-width: 1100px) { .temporary-player-form { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 780px) { .roster-grid, .temporary-player-card { grid-template-columns: 1fr; } .analysis-header-card { align-items: start; flex-direction: column; gap: 16px; } }
-@media (max-width: 480px) { .workspace-toolbar, .workspace-next-card { align-items: start; flex-wrap: wrap; } .temporary-player-form { grid-template-columns: 1fr; } .workspace-step { padding: 12px 8px; font-size: .9rem; } }
+@media (max-width: 780px) { .roster-grid, .temporary-player-card { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .workspace-next-card { align-items: start; flex-wrap: wrap; } .temporary-player-form { grid-template-columns: 1fr; } .workspace-step { padding: 12px 8px; font-size: .9rem; } }
 
 /* Each team is an independent roster region; a short rival stays short. */
 .roster-grid { align-items: start; }

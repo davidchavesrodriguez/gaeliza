@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { PersistenceStatus, type SaveState } from './PersistenceStatus'
 import { updateAnalysisEvent } from '../data/event-editing'
 import { logQuickEvent, removeAnalysisEvent, rebuildInferredPossessions, reopenAnalysis } from '../data/tagging'
@@ -16,12 +16,13 @@ type Props = {
   workspace: AnalysisWorkspace
   onBack: () => void
   onWorkspaceChanged: () => Promise<void>
+  renderContext?: (scoreboard: ReactNode) => ReactNode
   lifecycleManaged?: boolean
   onSaveStateChange?: (state: SaveState) => void
   onInteractionLockChange?: (locked: boolean) => void
 }
 
-export function TaggingPanel({ workspace, onBack, onWorkspaceChanged, lifecycleManaged, onSaveStateChange, onInteractionLockChange }: Props) {
+export function TaggingPanel({ workspace, onBack, onWorkspaceChanged, lifecycleManaged, onSaveStateChange, onInteractionLockChange, renderContext }: Props) {
   const [focusVideoOnRequest, setFocusVideoOnRequest] = useState(false)
   const [videoVisible, setVideoVisible] = useState(workspace.videos.length > 0)
   const [videoRequest, setVideoRequest] = useState<VideoNavigationRequest | null>(() => {
@@ -65,8 +66,10 @@ export function TaggingPanel({ workspace, onBack, onWorkspaceChanged, lifecycleM
             await logQuickEvent(input)
             return input.foulDiscipline ? 'Falta e tarxeta gardadas.' : `Evento gardado: ${quickEventLabels[input.eventType]}.`
           })} />)
+  const scoreboard = <TaggingScoreboard workspace={workspace} events={events} loading={loadingEvents} unavailable={needsRefresh && events.length === 0} />
   return (
     <div className="tagging-stack">
+      {renderContext ? renderContext(scoreboard) : null}
       {!onSaveStateChange ? <PersistenceStatus state={saveState} /> : null}
       {workspace.status === 'completed' && !lifecycleManaged ? (
         <div className="tagging-readonly-banner">
@@ -111,9 +114,9 @@ export function TaggingPanel({ workspace, onBack, onWorkspaceChanged, lifecycleM
         </div>
       ) : null}
 
-      <TaggingScoreboard workspace={workspace} events={events} />
+      {!renderContext ? scoreboard : null}
       {possessionsNeedReview ? <p role="status">Evento actualizado. Revisa e reconstrúe explicitamente as posesións inferidas; non se reconstruíron automaticamente.</p> : null}
-      <div className="tagging-toolbar"><h2>{workspace.status === 'completed' ? 'Revisión de eventos' : 'Rexistro de eventos'}</h2>
+      <div className="tagging-toolbar"><h2 className="visually-hidden">{workspace.status === 'completed' ? 'Revisión de eventos' : 'Rexistro de eventos'}</h2>
         <button className="button button-secondary" type="button" aria-expanded={videoVisible} aria-controls="tagging-video-panel"
           onClick={() => setVideoVisible((visible) => !visible)}>{videoVisible ? 'Ocultar vídeo' : 'Mostrar vídeo'}</button></div>
       <div className={`tagging-layout${videoVisible ? ' tagging-layout-with-video' : ''}`}>
