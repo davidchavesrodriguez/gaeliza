@@ -21,6 +21,11 @@ type RawEventFact = {
   card_type: string | null
   kickout_length: string | null
   kickout_result: string | null
+  pass_result: string | null
+  pass_technique: string | null
+  duel_type: string | null
+  dribble_result: string | null
+  restart_type: string | null
 }
 
 function mapNullableNumber(value: number | string | null) {
@@ -45,6 +50,12 @@ function mapEvent(event: RawEventFact): AnalysisEventSummary {
     cardType: event.card_type,
     kickoutLength: event.kickout_length,
     kickoutResult: event.kickout_result,
+    passResult: event.pass_result ?? null,
+    passTechnique: event.pass_technique ?? null,
+    duelType: event.duel_type ?? null,
+    dribbleResult: event.dribble_result ?? null,
+    restartType: event.restart_type ?? null,
+    participants: [],
   }
 }
 
@@ -72,7 +83,7 @@ export async function listAnalysisEvents(
     let query = supabase
       .from('analysis_event_facts')
       .select(
-        'event_id, event_type, team_id, period_id, period_number, second_in_period, raw_x, raw_y, score_value, shot_result, recovery_method, turnover_cause, foul_outcome, card_type, kickout_length, kickout_result',
+        'event_id, event_type, team_id, period_id, period_number, second_in_period, raw_x, raw_y, score_value, shot_result, recovery_method, turnover_cause, foul_outcome, card_type, kickout_length, kickout_result, pass_result, pass_technique, duel_type, dribble_result, restart_type',
       )
       .eq('analysis_id', analysisId)
       .order('period_sort_order', { ascending: true })
@@ -87,8 +98,40 @@ export async function listAnalysisEvents(
     if (error) throw new Error(`Could not load analysis events: ${error.message}`)
 
     const page = data as unknown as RawEventFact[]
-    events.push(...page.map(mapEvent))
+    const summaries = page.map(mapEvent)
+    await loadReplacementParticipants(analysisId, summaries, signal)
+    events.push(...summaries)
     if (page.length < pageSize) return events
+  }
+}
+
+type RawParticipantRole = {
+  event_id: string
+  role: string
+  participant: { id: string; display_name_snapshot: string; number: number | null } | null
+}
+
+async function loadReplacementParticipants(analysisId: string, events: AnalysisEventSummary[], signal?: AbortSignal) {
+  const replacements = events.filter((event) => event.eventType === 'substitution' || event.eventType === 'goalkeeper_change')
+  // Keep PostgREST URLs bounded (100 UUIDs per request), also on dense timelines.
+  for (let offset = 0; offset < replacements.length; offset += 100) {
+    const batch = replacements.slice(offset, offset + 100)
+    let query = supabase.from('event_participants')
+      .select('event_id, role, participant:analysis_participants!event_participants_participant_same_analysis_fkey(id, display_name_snapshot, number)')
+      .eq('analysis_id', analysisId)
+      .in('event_id', batch.map((event) => event.id))
+      .order('role', { ascending: true })
+      .order('analysis_participant_id', { ascending: true })
+    if (signal) query = query.abortSignal(signal)
+    const { data, error } = await query
+    if (error) throw new Error(`Could not load event participants: ${error.message}`)
+    const roles = data as unknown as RawParticipantRole[]
+    for (const event of batch) {
+      event.participants = roles.filter((role) => role.event_id === event.id).flatMap((role) => role.participant ? [{
+        participantId: role.participant.id, role: role.role,
+        displayName: role.participant.display_name_snapshot, number: role.participant.number,
+      }] : [])
+    }
   }
 }
 

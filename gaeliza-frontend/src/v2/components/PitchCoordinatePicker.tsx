@@ -3,6 +3,7 @@ import type { PointerEvent } from 'react'
 type PitchCoordinatePickerProps = {
   x: number | null
   y: number | null
+  labelPrefix?: string
   disabled?: boolean
   onChange: (x: number | null, y: number | null) => void
 }
@@ -15,6 +16,7 @@ export function PitchCoordinatePicker({
   x,
   y,
   disabled = false,
+  labelPrefix = '',
   onChange,
 }: PitchCoordinatePickerProps) {
   function handlePointer(event: PointerEvent<HTMLButtonElement>) {
@@ -43,7 +45,7 @@ export function PitchCoordinatePicker({
         className="tagging-pitch"
         type="button"
         disabled={disabled}
-        aria-label="Escolle a posición do evento no campo"
+        aria-label={labelPrefix ? `${labelPrefix}: escolle a posición no campo` : "Escolle a posición do evento no campo"}
         onPointerDown={handlePointer}
       >
         <span className="pitch-halfway-line" aria-hidden="true" />
@@ -62,7 +64,7 @@ export function PitchCoordinatePicker({
 
       <div className="coordinate-inputs">
         <label>
-          <span>X</span>
+          <span>{labelPrefix ? `${labelPrefix} X` : 'X'}</span>
           <input
             type="number"
             min="0"
@@ -78,7 +80,7 @@ export function PitchCoordinatePicker({
           />
         </label>
         <label>
-          <span>Y</span>
+          <span>{labelPrefix ? `${labelPrefix} Y` : 'Y'}</span>
           <input
             type="number"
             min="0"
@@ -95,6 +97,7 @@ export function PitchCoordinatePicker({
         </label>
         <button
           className="coordinate-clear"
+          aria-label={labelPrefix ? `Limpar ${labelPrefix.toLowerCase()}` : 'Limpar posición'}
           type="button"
           disabled={disabled || (x === null && y === null)}
           onClick={() => {

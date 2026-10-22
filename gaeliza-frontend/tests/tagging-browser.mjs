@@ -38,6 +38,7 @@ test('tagging browser regressions', async (t) => {
     function Harness() {
       const [workspace, setWorkspace] = useState(${JSON.stringify(workspace)})
       return <><button onClick={() => setWorkspace({...workspace, status:'completed'})}>Complete fixture</button>
+        <button onClick={() => setWorkspace({...workspace, participants: workspace.participants.filter(p => p.id !== 'home2')})}>Drop fixture participant</button>
         <TaggingPanel workspace={workspace} onBack={() => {}} onWorkspaceChanged={async () => {
           const response = await fetch('/fixture-workspace')
           if (!response.ok) throw new Error('Workspace reload failed')
@@ -86,11 +87,28 @@ test('tagging browser regressions', async (t) => {
       if (holdReads) { readArrived?.(); await holdReads }
       return failReads ? reply(route, { message: 'Read failed' }, 400) : reply(route, events)
     }
+    if (url.pathname.endsWith('/event_participants')) {
+      const ids = url.searchParams.get('event_id').slice(4, -1).split(',')
+      return reply(route, ids.flatMap((id) => {
+        const input = writes[Number(id.replace('saved', '')) - 1]
+        return (input?.p_participants ?? []).map((role) => {
+          const participant = workspace.participants.find((p) => p.id === role.participant_id)
+          return { event_id: id, role: role.role, participant: participant ? {
+            id: participant.id, number: participant.number, display_name_snapshot: participant.displayName,
+          } : null }
+        })
+      }))
+    }
     if (url.pathname.endsWith('/rpc/log_event')) {
       const input = route.request().postDataJSON()
       writes.push(input); status = 'in_progress'
       events = [...events, { ...fact(`saved${writes.length}`, input.p_second_in_period), event_type: input.p_event_type,
-        team_id: input.p_team_id, raw_x: input.p_x, raw_y: input.p_y, shot_result: input.p_detail.result ?? null,
+        team_id: input.p_team_id, raw_x: input.p_x, raw_y: input.p_y,
+        shot_result: input.p_event_type === 'shot' ? input.p_detail.result ?? null : null,
+        pass_result: input.p_event_type === 'pass' ? input.p_detail.result ?? null : null,
+        pass_technique: input.p_detail.technique ?? null, duel_type: input.p_detail.duel_type ?? null,
+        dribble_result: input.p_event_type === 'dribble' ? input.p_detail.result ?? null : null,
+        restart_type: input.p_detail.restart_type ?? null,
       }].sort((a, b) => a.second_in_period - b.second_in_period)
       return reply(route, `saved${writes.length}`)
     }
@@ -159,9 +177,105 @@ test('tagging browser regressions', async (t) => {
     failReads = false; await page.getByRole('button', { name: 'Recargar datos' }).click(); await idle()
     assert.equal(writes.length, committed)
   })
+  await t.test('completed pass preserves raw origin and destination zero in one RPC', async () => {
+    await page.getByRole('button', { name: 'Pase', exact: true }).click()
+    await page.getByLabel(/^Equipo do evento/).selectOption('home')
+    await page.getByLabel(/^Resultado do pase/).selectOption('completed')
+    await page.getByLabel(/^Técnica do pase/).selectOption('foot')
+    await page.getByLabel(/^Pasador/).selectOption('home1')
+    await page.getByLabel(/^Receptor/).selectOption('home2')
+    await page.getByLabel('X', { exact: true }).fill('0'); await page.getByLabel('Y', { exact: true }).fill('0')
+    await page.getByLabel('Destino X', { exact: true }).fill('0'); await page.getByLabel('Destino Y', { exact: true }).fill('0')
+    const before = writes.length
+    await save.click(); await idle()
+    assert.equal(writes.length, before + 1)
+    assert.equal(writes.at(-1).p_event_type, 'pass')
+    assert.deepEqual(writes.at(-1).p_detail, { result: 'completed', technique: 'foot', end_x: 0, end_y: 0 })
+    assert.equal(writes.at(-1).p_x, 0); assert.equal(writes.at(-1).p_y, 0)
+    assert.deepEqual(writes.at(-1).p_participants.map((p) => p.role), ['passer', 'receiver'])
+    await page.getByText('completed · foot', { exact: false }).first().waitFor()
+  })
+  await t.test('pass result and team changes clean receiver/interceptor state; each pass is one event', async () => {
+    await page.getByLabel(/^Pasador/).selectOption('home1')
+    await page.getByLabel(/^Receptor/).selectOption('home2')
+    await page.getByLabel(/^Resultado do pase/).selectOption('intercepted')
+    assert.equal(await page.getByLabel(/^Receptor previsto/).inputValue(), '')
+    await page.getByLabel(/^Receptor previsto/).selectOption('home2')
+    await page.getByLabel(/^Interceptor rival/).selectOption('away1')
+    await page.getByLabel(/^Resultado do pase/).selectOption('incomplete')
+    assert.equal(await page.getByLabel(/^Interceptor rival/).count(), 0)
+    assert.equal(await page.getByLabel(/^Receptor previsto/).inputValue(), 'home2')
+    await save.click(); await idle()
+    assert.deepEqual(writes.at(-1).p_participants.map((p) => p.role), ['passer', 'intended_receiver'])
+    await page.getByLabel(/^Resultado do pase/).selectOption('intercepted')
+    await page.getByLabel(/^Pasador/).selectOption('home1')
+    await page.getByLabel(/^Receptor previsto/).selectOption('home2')
+    await page.getByLabel(/^Interceptor rival/).selectOption('away1')
+    await page.getByLabel(/^Equipo do evento/).selectOption('away')
+    assert.equal(await page.getByLabel(/^Pasador/).inputValue(), '')
+    assert.equal(await page.getByLabel(/^Interceptor rival/).inputValue(), '')
+    await page.getByLabel(/^Equipo do evento/).selectOption('home')
+    await page.getByLabel(/^Pasador/).selectOption('home1')
+    await page.getByLabel(/^Receptor previsto/).selectOption('home2')
+    await page.getByLabel(/^Interceptor rival/).selectOption('away1')
+    const before = writes.length
+    await save.click(); await idle()
+    assert.equal(writes.length, before + 1)
+    assert.equal(writes.at(-1).p_event_type, 'pass')
+    assert.deepEqual(writes.at(-1).p_participants.map((p) => p.role), ['passer', 'intended_receiver', 'interceptor'])
+    assert.equal(rebuilds, 1)
+  })
+  for (const [label, type, detailLabel, detail, roles] of [
+    ['Duelo', 'duel', /^Tipo de duelo/, 'aerial', [[/^Gañador do duelo/, 'home1'], [/^Perdedor rival/, 'away1']]],
+    ['Regate', 'dribble', /^Resultado do regate/, 'successful', [[/^Regateador/, 'home1'], [/^Defensor rival/, 'away1']]],
+    ['Regate', 'dribble', /^Resultado do regate/, 'failed', []],
+    ['Reinicio', 'restart', /^Tipo de reinicio/, 'sideline', [[/^Executor do reinicio/, 'home1']]],
+    ['Substitución', 'substitution', null, null, [[/^Xogador que sae/, 'home1'], [/^Xogador que entra/, 'home2']]],
+    ['Cambio de porteiro', 'goalkeeper_change', null, null, [[/^Porteiro que sae/, 'home1'], [/^Porteiro que entra/, 'home2']]],
+  ]) {
+    await t.test(`extended capture ${type} ${detail ?? 'roles'}`, async () => {
+      await page.getByRole('button', { name: label, exact: true }).click()
+      if (detailLabel) await page.getByLabel(detailLabel).selectOption(detail)
+      for (const [roleLabel, id] of roles) await page.getByLabel(roleLabel).selectOption(id)
+      await save.click(); await idle()
+      assert.equal(writes.at(-1).p_event_type, type)
+      assert.deepEqual(writes.at(-1).p_participants.map((p) => p.participant_id), roles.map(([, id]) => id))
+      if (type === 'substitution' || type === 'goalkeeper_change') {
+        await page.getByText('#1 → #2', { exact: false }).first().waitFor()
+        assert.deepEqual(writes.at(-1).p_detail, {})
+      }
+      assert.equal(rebuilds, 1)
+    })
+  }
+  await t.test('changing type resets details/roles and destination; absent identities remain optional', async () => {
+    await page.getByRole('button', { name: 'Pase', exact: true }).click()
+    await page.getByLabel(/^Resultado do pase/).selectOption('intercepted')
+    await page.getByLabel(/^Interceptor rival/).selectOption('away1')
+    await page.getByLabel('Destino X', { exact: true }).fill('0'); await page.getByLabel('Destino Y', { exact: true }).fill('0')
+    await page.getByRole('button', { name: 'Duelo', exact: true }).click()
+    await page.getByRole('button', { name: 'Pase', exact: true }).click()
+    assert.equal(await page.getByLabel(/^Resultado do pase/).inputValue(), '')
+    assert.equal(await page.getByLabel('Destino X', { exact: true }).inputValue(), '')
+    assert.equal(await page.getByLabel(/^Pasador/).inputValue(), '')
+    for (const label of ['Pase', 'Duelo', 'Regate', 'Reinicio', 'Substitución', 'Cambio de porteiro']) {
+      await page.getByRole('button', { name: label, exact: true }).click()
+      await save.click(); await idle()
+      assert.deepEqual(writes.at(-1).p_participants, [])
+    }
+  })
+  await t.test('removed roster participant is cleared before capture', async () => {
+    await page.getByRole('button', { name: 'Pase', exact: true }).click()
+    await page.getByLabel(/^Resultado do pase/).selectOption('completed')
+    await page.getByLabel(/^Receptor/).selectOption('home2')
+    await page.getByRole('button', { name: 'Drop fixture participant' }).click()
+    assert.equal(await page.getByLabel(/^Receptor/).inputValue(), '')
+    await save.click(); await idle()
+    assert.deepEqual(writes.at(-1).p_participants, [])
+  })
   await t.test('completed blocks capture, deletion and inference until reopening', async () => {
     await page.getByRole('button', { name: 'Complete fixture' }).click()
     assert.equal(await save.isDisabled(), true)
+    for (const label of ['Pase', 'Duelo', 'Regate', 'Reinicio', 'Substitución', 'Cambio de porteiro']) assert.equal(await page.getByRole('button', { name: label, exact: true }).isDisabled(), true)
     assert.equal(await page.getByRole('button', { name: 'Inferir posesións' }).isDisabled(), true)
     assert.equal(await page.getByRole('button', { name: 'Quitar', exact: true }).first().isDisabled(), true)
     await page.getByRole('button', { name: 'Reabrir análise' }).click(); await idle()
