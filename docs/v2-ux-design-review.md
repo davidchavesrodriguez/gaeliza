@@ -112,6 +112,8 @@ Si Chromium no está en la ubicación de Playwright, pasar
 desechable con migrations aplicadas y ejecutar los cinco archivos de
 `supabase/tests/`, conservando su carpeta `fixtures/` para los `\ir`.
 
+Las capturas también están publicadas en la [galería del repositorio](screenshots/v2-ux-design-foundation/README.md), accesible desde GitHub sin acceso al entorno local.
+
 Capturas generadas en `/workspace/artifacts/ux-foundation/`: `dashboard-dark.png`,
 `tagging-desktop-dark.png`, `tagging-desktop-light.png`, `tagging-mobile-dark.png`,
 `workspace-completed-dark.png` y `landing-dark.png`. Son fixtures identificadas de
