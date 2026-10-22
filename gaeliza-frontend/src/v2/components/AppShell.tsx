@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { ThemeToggle } from './ThemeToggle'
 import { useAuth } from '../auth/auth-context'
 
 export function AppShell() {
@@ -6,6 +7,7 @@ export function AppShell() {
 
   return (
     <div className="app-frame">
+      <a className="skip-link" href="#main-content">Saltar ao contido</a>
       <header className="app-header">
         <NavLink className="brand" to="/app" end>
           <span className="brand-mark" aria-hidden="true">
@@ -30,13 +32,14 @@ export function AppShell() {
           </NavLink>
         </nav>
 
+        <div className="app-header-tools"><ThemeToggle />
         <div className="session-chip" title={session?.user.id}>
           <span className="session-dot" aria-hidden="true" />
           {isAnonymous ? 'Modo invitado' : 'Conta gardada'}
-        </div>
+        </div></div>
       </header>
 
-      <main className="app-content">
+      <main id="main-content" className="app-content">
         <Outlet />
       </main>
     </div>

@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { completeAnalysis } from '../data/analyses'
+import { reopenAnalysis } from '../data/tagging'
+import { PersistenceStatus, type SaveState } from '../components/PersistenceStatus'
+import { CompleteAnalysisDialog } from '../components/CompleteAnalysisDialog'
+import { analysisStatusLabels, positionLabel } from '../domain/presentation'
+import { workspaceStep, type WorkspaceStep } from '../domain/workspace-navigation'
 import { TaggingPanel } from '../components/TaggingPanel'
 import { VideoSetupPanel } from '../components/VideoSetupPanel'
 import {
@@ -22,7 +28,6 @@ import {
 } from '../domain/analysis'
 import { formatMatchDate, type TeamSummary } from '../domain/matches'
 
-type WorkspaceStep = 'roster' | 'video' | 'tagging'
 
 function TeamRoster({
   team,
@@ -43,10 +48,10 @@ function TeamRoster({
     <section className="roster-team-card">
       <div className="roster-team-heading">
         <div>
-          <span className="eyebrow">Equipo</span>
+
           <h2>{team.name}</h2>
         </div>
-        <span className="badge">{participants.length} convocados</span>
+        <span className="badge">{participants.length} {participants.length === 1 ? 'convocado' : 'convocados'}</span>
       </div>
 
       <div className="participant-list">
@@ -61,8 +66,8 @@ function TeamRoster({
               <div className="participant-identity">
                 <strong>{participant.displayName}</strong>
                 <small>
-                  {participant.playerId ? 'Xogador persistente' : 'Identidade temporal'}
-                  {participant.position ? ` · ${participant.position}` : ''}
+                  {participant.playerId ? 'Xogador do equipo' : 'Nome provisional'}
+                  {participant.position ? ` · ${positionLabel(participant.position)}` : ''}
                 </small>
               </div>
               <button
@@ -110,9 +115,21 @@ function TeamRoster({
 
 export function AnalysisWorkspacePage() {
   const { analysisId } = useParams<{ analysisId: string }>()
+  if (!analysisId) return <section><Link to="/app">← Inicio</Link><h1>Falta o identificador do análise.</h1></section>
+  return <AnalysisWorkspaceView key={analysisId} analysisId={analysisId} />
+}
+
+function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
+  const [search, setSearch] = useSearchParams()
   const readController = useRef<AbortController | null>(null)
   const [workspace, setWorkspace] = useState<AnalysisWorkspace | null>(null)
-  const [activeStep, setActiveStep] = useState<WorkspaceStep>('roster')
+  const activeStep = workspaceStep(search.get('step'), workspace?.status)
+  function setActiveStep(step: WorkspaceStep) { setTaggingLocked(false); setSearch({ step }) }
+  const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [taggingLocked, setTaggingLocked] = useState(false)
+  const [requiresReload, setRequiresReload] = useState(false)
+  const [confirmingComplete, setConfirmingComplete] = useState(false)
+  const mutationPending = useRef(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -141,6 +158,7 @@ export function AnalysisWorkspacePage() {
         }
 
         setWorkspace(nextWorkspace)
+        setRequiresReload(false)
         setTemporaryTeamId((current) => {
           const validTeamIds = [
             nextWorkspace.homeTeam.id,
@@ -217,24 +235,31 @@ export function AnalysisWorkspacePage() {
     return groups
   }, [workspace])
 
-  async function runMutation(action: () => Promise<void>): Promise<boolean> {
-    setBusy(true)
-    setError(null)
-
+  async function runMutation(action: () => Promise<void>, lifecycle = false): Promise<boolean> {
+    if (mutationPending.current || loading || requiresReload || (!lifecycle && workspace?.status === 'completed')) return false
+    mutationPending.current = true
+    setBusy(true); setError(null); setSaveState('pending')
+    const signal = readController.current?.signal
+    let saved = false
     try {
       await action()
-      setRevision((current) => current + 1)
-      return true
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'Non puidemos actualizar o análise.',
-      )
-      return false
+      saved = true
+      if (signal?.aborted) return saved
+      setSaveState('saved')
+      setRequiresReload(true)
+      const next = await getAnalysisWorkspace(analysisId, signal)
+      if (!signal?.aborted) { setWorkspace(next); setRequiresReload(false) }
+    } catch (caught) {
+      if (!signal?.aborted) {
+        if (!saved) setSaveState('error')
+        const message = caught instanceof Error ? caught.message : 'Non puidemos actualizar o análise.'
+        setError(saved ? `A acción gardouse, pero fallou a recarga. Non a repitas. ${message}` : message)
+      }
     } finally {
-      setBusy(false)
+      mutationPending.current = false
+      if (!signal?.aborted) setBusy(false)
     }
+    return saved
   }
 
   function handleAddRosterPlayer(player: RosterPlayer) {
@@ -283,6 +308,7 @@ export function AnalysisWorkspacePage() {
   if (loading && (!workspace || workspace.id !== analysisId)) {
     return (
       <div className="centered-panel" aria-live="polite">
+        <Link to="/app">← Inicio</Link>
         <div className="spinner" aria-hidden="true" />
         <p>Cargando o espazo de análise…</p>
       </div>
@@ -292,9 +318,10 @@ export function AnalysisWorkspacePage() {
   if (!workspace || workspace.id !== analysisId) {
     return (
       <section className="state-card">
-        <span className="eyebrow">Non dispoñible</span>
+        <Link to="/app">← Inicio</Link>
         <h1>Non puidemos abrir este análise.</h1>
         <p>{error ?? 'O análise non existe ou non tes acceso.'}</p>
+        <button className="button button-secondary" type="button" onClick={() => setRevision((value) => value + 1)}>Reintentar</button>
       </section>
     )
   }
@@ -302,62 +329,39 @@ export function AnalysisWorkspacePage() {
   const teams = [workspace.homeTeam, workspace.awayTeam]
 
   return (
-    <div className="page-stack">
-      <section className="analysis-header-card">
-        <div>
-          <span className="eyebrow">
-            {workspace.mode === 'live' ? 'Análise en directo' : 'Análise desde vídeo'}
-          </span>
-          <h1>
-            {workspace.homeTeam.shortName ?? workspace.homeTeam.name}
-            <span> vs </span>
-            {workspace.awayTeam.shortName ?? workspace.awayTeam.name}
-          </h1>
-          <p>
-            {formatMatchDate(workspace.scheduledAt)} · {workspace.periods.length}{' '}
-            períodos preparados
-          </p>
-        </div>
-        <span className="badge">{workspace.status}</span>
-      </section>
-
-      <div className="workspace-step-strip" aria-label="Preparación do análise">
-        <span className="workspace-step workspace-step-done">1 · Partido</span>
-        <span
-          className={
-            activeStep === 'roster'
-              ? 'workspace-step workspace-step-active'
-              : 'workspace-step workspace-step-done'
-          }
-        >
-          2 · Convocatoria
-        </span>
-        <span
-          className={
-            activeStep === 'video'
-              ? 'workspace-step workspace-step-active'
-              : activeStep === 'tagging'
-                ? 'workspace-step workspace-step-done'
-                : 'workspace-step'
-          }
-        >
-          3 · Vídeo / directo
-        </span>
-        <span
-          className={
-            activeStep === 'tagging'
-              ? 'workspace-step workspace-step-active'
-              : 'workspace-step'
-          }
-        >
-          4 · Tagging
-        </span>
+    <div className="page-stack workspace-page">
+      <div className="workspace-toolbar">
+        <Link className="text-link" to="/app">← Inicio</Link>
+        <PersistenceStatus state={saveState} />
       </div>
-
+      <header className="analysis-header-card">
+        <div><h1>{workspace.homeTeam.shortName ?? workspace.homeTeam.name} <span>—</span> {workspace.awayTeam.shortName ?? workspace.awayTeam.name}</h1>
+          <p>{formatMatchDate(workspace.scheduledAt)} · {workspace.mode === 'live' ? 'En directo' : 'Desde vídeo'}</p></div>
+        <div className="workspace-lifecycle">
+          <span className={`badge status-${workspace.status}`}>{analysisStatusLabels[workspace.status]}</span>
+          {workspace.status === 'completed' ? <button className="button button-primary" type="button"
+            disabled={busy || loading || taggingLocked || requiresReload}
+            onClick={() => { void runMutation(() => reopenAnalysis(workspace.id), true) }}>Reabrir análise</button> :
+            <button className="button button-secondary" type="button" disabled={busy || loading || taggingLocked || requiresReload}
+              onClick={() => { setError(null); setConfirmingComplete(true) }}>Finalizar análise</button>}
+        </div>
+      </header>
+      {workspace.status === 'completed' ? <p className="completed-summary">Análise finalizado. Os datos consérvanse; podes revisar a timeline e navegar polo vídeo. Reábreo para facer cambios.</p> : null}
+      <nav className="workspace-step-strip" aria-label="Seccións do análise">
+        {([['roster','Convocatoria'],['video','Vídeo e sincronización'],['tagging','Tagging']] as const).map(([step,label]) =>
+          <button key={step} type="button" className={`workspace-step${activeStep === step ? ' workspace-step-active' : ''}`}
+            aria-current={activeStep === step ? 'page' : undefined} disabled={busy || taggingLocked}
+            onClick={() => { setError(null); setActiveStep(step) }}>{label}</button>)}
+      </nav>
+      {confirmingComplete ? <CompleteAnalysisDialog busy={busy} error={error} onCancel={() => setConfirmingComplete(false)}
+        onConfirm={() => { void runMutation(() => completeAnalysis(workspace.id), true).then((saved) => {
+          if (saved) { setConfirmingComplete(false); setActiveStep('tagging') }
+        }) }} /> : null}
       {error ? (
         <div className="form-error" role="alert">
           <strong>Non puidemos completar a acción.</strong>
           <span>{error}</span>
+          {requiresReload ? <button className="button button-secondary" type="button" disabled={busy} onClick={() => setRevision((value) => value + 1)}>Recargar datos</button> : null}
         </div>
       ) : null}
 
@@ -365,6 +369,9 @@ export function AnalysisWorkspacePage() {
         <TaggingPanel
           key={workspace.id}
           workspace={workspace}
+          lifecycleManaged
+          onSaveStateChange={setSaveState}
+          onInteractionLockChange={setTaggingLocked}
           onBack={() => {
             setError(null)
             setActiveStep('video')
@@ -401,6 +408,7 @@ export function AnalysisWorkspacePage() {
         />
       ) : (
         <>
+          <fieldset className="workspace-fields" disabled={busy || loading || requiresReload || workspace.status === 'completed'}>
           <div className="roster-grid">
             {teams.map((team) => (
               <TeamRoster
@@ -417,12 +425,10 @@ export function AnalysisWorkspacePage() {
 
           <section className="state-card temporary-player-card">
             <div>
-              <span className="eyebrow">Identidade temporal</span>
-              <h2>Engade un rival sen crear un xogador global</h2>
+
+              <h2>Engadir á convocatoria</h2>
               <p>
-                Útil cando só coñeces o dorsal ou un nome provisional. Poderás ligar
-                esta identidade a un xogador persistente máis adiante sen perder os
-                eventos rexistrados.
+                Usa o nome ou dorsal se aínda non coñeces o xogador. A identidade queda asociada só a este análise.
               </p>
             </div>
 
@@ -483,9 +489,10 @@ export function AnalysisWorkspacePage() {
             </form>
           </section>
 
+          </fieldset>
           <div className="workspace-next-card">
             <div>
-              <span className="eyebrow">Seguinte</span>
+
               <strong>Vídeo, sincronización e orientación do campo</strong>
             </div>
             <button

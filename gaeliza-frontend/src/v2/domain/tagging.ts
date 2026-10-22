@@ -1,3 +1,4 @@
+import { domainLabel } from './presentation.ts'
 import type { VideoSyncPoint } from './analysis'
 
 export type QuickEventType =
@@ -76,26 +77,26 @@ export const quickEventLabels: Record<QuickEventType, string> = {
 export function getEventResultLabel(event: AnalysisEventSummary) {
   switch (event.eventType) {
     case 'pass':
-      return [event.passResult, event.passTechnique].filter(Boolean).join(' · ') || 'pase'
-    case 'duel': return event.duelType ?? 'duelo'
-    case 'dribble': return event.dribbleResult ?? 'regate'
-    case 'restart': return event.restartType ?? 'reinicio'
+      return [event.passResult, event.passTechnique].filter(Boolean).map(domainLabel).join(' · ') || 'pase'
+    case 'duel': return domainLabel(event.duelType)
+    case 'dribble': return domainLabel(event.dribbleResult)
+    case 'restart': return domainLabel(event.restartType)
     case 'substitution': return replacementLabel(event, 'player_out', 'player_in')
     case 'goalkeeper_change': return replacementLabel(event, 'goalkeeper_out', 'goalkeeper_in')
     case 'shot':
-      return event.shotResult ?? 'tiro'
+      return event.shotResult ? domainLabel(event.shotResult) : 'Tiro'
     case 'recovery':
-      return event.recoveryMethod ?? 'recuperación'
+      return event.recoveryMethod ? domainLabel(event.recoveryMethod) : 'Recuperación'
     case 'turnover':
-      return event.turnoverCause ?? 'perda'
+      return event.turnoverCause ? domainLabel(event.turnoverCause) : 'Perda'
     case 'foul':
-      return event.foulOutcome ?? 'falta'
+      return event.foulOutcome ? domainLabel(event.foulOutcome) : 'Falta'
     case 'card':
-      return event.cardType ?? 'tarxeta'
+      return event.cardType ? domainLabel(event.cardType) : 'Tarxeta'
     case 'kickout':
-      return [event.kickoutLength, event.kickoutResult].filter(Boolean).join(' · ')
+      return [event.kickoutLength, event.kickoutResult].filter(Boolean).map(domainLabel).join(' · ')
     default:
-      return event.eventType
+      return eventTypeLabel(event.eventType)
   }
 }
 
@@ -110,7 +111,7 @@ function replacementLabel(event: AnalysisEventSummary, outRole: string, inRole: 
 
 export function eventTypeLabel(eventType: string) {
   const entry = Object.entries(quickEventLabels).find(([type]) => type === eventType)
-  return entry?.[1] ?? eventType
+  return entry?.[1] ?? 'Evento'
 }
 
 export function mapPeriodSecondToVideoSecond(

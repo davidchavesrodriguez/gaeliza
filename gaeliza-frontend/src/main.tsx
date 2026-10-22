@@ -1,3 +1,4 @@
+import { initializeTheme } from './v2/domain/theme'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
@@ -8,6 +9,8 @@ import './v2/styles/analysis-setup.css'
 import './v2/styles/analysis-workspace.css'
 import './v2/styles/video-sync.css'
 import './v2/styles/tagging.css'
+
+initializeTheme()
 
 const rootElement = document.getElementById('root')
 

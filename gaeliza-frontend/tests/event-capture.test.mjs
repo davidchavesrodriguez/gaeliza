@@ -92,7 +92,7 @@ test('replacement participants must differ; either participant alone is allowed'
     assert.equal(buildCaptureInput(form(type, {}, { [into]: 'h2' }), workspace).participants.length, 1)
   }
 })
-for (const type of ['pass', 'kickout']) {
+for (const type of ['pass']) {
   test(`${type} origin and destination (0,0) remain raw; half pairs are rejected`, () => {
     const state = form(type)
     state.x = state.y = 0; state.capture = withDestination(state.capture, 0, 0)
@@ -110,14 +110,26 @@ test('completed analyses reject every canonical type; integer DB bounds remain e
   assert.throws(() => buildCaptureInput({ ...form('pass'), clock: '2147483648' }, workspace), /tempo/)
 })
 test('timeline summaries include typed details and known historical replacements only', () => {
-  assert.equal(getEventResultLabel({ eventType: 'pass', passResult: 'completed', passTechnique: 'foot' }), 'completed · foot')
-  assert.equal(getEventResultLabel({ eventType: 'duel', duelType: 'aerial' }), 'aerial')
-  assert.equal(getEventResultLabel({ eventType: 'dribble', dribbleResult: 'successful' }), 'successful')
-  assert.equal(getEventResultLabel({ eventType: 'restart', restartType: 'sideline' }), 'sideline')
+  assert.equal(getEventResultLabel({ eventType: 'pass', passResult: 'completed', passTechnique: 'foot' }), 'Completado · Pé')
+  assert.equal(getEventResultLabel({ eventType: 'duel', duelType: 'aerial' }), 'Aéreo')
+  assert.equal(getEventResultLabel({ eventType: 'dribble', dribbleResult: 'successful' }), 'Completado')
+  assert.equal(getEventResultLabel({ eventType: 'restart', restartType: 'sideline' }), 'Banda')
   assert.equal(getEventResultLabel({ eventType: 'substitution', participants: [{ role: 'player_out', number: 8 }, { role: 'player_in', number: 12 }] }), '#8 → #12')
   assert.equal(getEventResultLabel({ eventType: 'goalkeeper_change', participants: [{ role: 'goalkeeper_out', number: 1 }] }), '#1 → Sen identificar')
 })
 test('role definitions stay distinct for blocked shot versus standalone block', () => {
   assert.equal(participantRoles({ ...defaultCapture('shot'), detail: { result: 'blocked' } }).find((r) => r.role === 'blocker').team, 'opponent')
   assert.equal(participantRoles(defaultCapture('block')).find((r) => r.role === 'blocker').team, 'same')
+})
+
+test('kickout creation and editing ignore origin and keeps destination zero, without changing stored enum values', () => {
+  const state = { ...form('kickout'), x: 99, y: null }
+  state.capture = withDestination(state.capture, 0, 0)
+  const input = buildCaptureInput(state, workspace)
+  assert.equal(input.x, null); assert.equal(input.y, null)
+  assert.deepEqual(input.detail, { length: 'short', result: null, end_x: 0, end_y: 0 })
+  const previouslyStored={...state,x:25,y:50}
+  assert.equal(buildCaptureInput(previouslyStored,workspace).x,null)
+  assert.equal(buildCaptureInput(previouslyStored,workspace).y,null)
+  assert.throws(()=>buildCaptureInput({...state,capture:withDestination(state.capture,0,null)},workspace),/destino/)
 })

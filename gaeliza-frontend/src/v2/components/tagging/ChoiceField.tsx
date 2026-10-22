@@ -1,3 +1,4 @@
+import { domainLabel } from '../../domain/presentation'
 // A typed select, shared by the small event-specific field components.
 type Props<T extends string> = {
   label: string
@@ -17,7 +18,7 @@ export function ChoiceField<T extends string>({ label, value, options, labels = 
       else if (optional && event.target.value === '') onChange(null)
     }}>
       {optional ? <option value="">Descoñecido</option> : null}
-      {options.map((option) => <option key={option} value={option}>{labels[option] ?? option}</option>)}
+      {options.map((option) => <option key={option} value={option}>{labels[option] ?? domainLabel(option)}</option>)}
     </select>
   </label>
 }

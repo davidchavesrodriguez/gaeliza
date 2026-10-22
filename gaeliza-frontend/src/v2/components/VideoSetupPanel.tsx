@@ -124,6 +124,7 @@ export function VideoSetupPanel({
 
   async function handleAddVideo(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (busy || workspace.status === 'completed') return
     setLocalError(null)
 
     const url = videoUrl.trim()
@@ -169,6 +170,7 @@ export function VideoSetupPanel({
 
   async function handleAddSyncPoint(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (busy || workspace.status === 'completed') return
     setLocalError(null)
 
     if (!selectedVideo || !selectedPeriod) {
@@ -222,15 +224,14 @@ export function VideoSetupPanel({
         </div>
       ) : null}
 
+      <fieldset className="workspace-fields" disabled={busy || workspace.status === 'completed'}>
       <section className="state-card video-orientation-card">
         <div className="section-heading-inline">
           <div>
-            <span className="eyebrow">Orientación</span>
+
             <h2>Indica cara onde ataca o equipo local</h2>
             <p>
-              Só o usamos para normalizar mapas e heatmaps. As coordenadas raw non
-              se modifican nunca; o visitante interprétase automaticamente na
-              dirección contraria.
+              Serve para interpretar as posicións no campo. O visitante ataca na dirección contraria; as posicións que rexistras consérvanse tal como as marcas.
             </p>
           </div>
         </div>
@@ -269,7 +270,7 @@ export function VideoSetupPanel({
       <section className="state-card video-library-card">
         <div className="section-heading-inline">
           <div>
-            <span className="eyebrow">Vídeo</span>
+
             <h2>Fontes do análise</h2>
             <p>
               Podes usar un ou varios vídeos. En directo é opcional: engádeo máis
@@ -285,9 +286,9 @@ export function VideoSetupPanel({
               <div className="video-row" key={video.id}>
                 <div className="video-row-main">
                   <strong>{getVideoLabel(video)}</strong>
-                  <a href={video.url} target="_blank" rel="noreferrer">
-                    Abrir vídeo ↗
-                  </a>
+                  {isSafeHttpUrl(video.url) ? <a href={video.url} target="_blank" rel="noreferrer">
+                    Abrir vídeo
+                  </a> : <span>URL de vídeo non compatible</span>}
                   <small>
                     {video.durationSeconds === null
                       ? 'Duración descoñecida'
@@ -373,11 +374,11 @@ export function VideoSetupPanel({
       <section className="state-card sync-card">
         <div className="section-heading-inline">
           <div>
-            <span className="eyebrow">Sincronización</span>
+
             <h2>Relaciona o reloxo do vídeo co reloxo do partido</h2>
             <p>
-              Con varios puntos Gaeliza poderá calcular o instante do vídeo sen
-              duplicalo en cada evento e tolerar gravacións con cortes ou drift.
+              Indica en que instante do vídeo comeza este período. Se a primeira parte comeza no 03:42 do vídeo: tempo do partido 00:00 → vídeo 03:42.
+              Engade outro punto despois dun corte para manter os reloxos sincronizados.
             </p>
           </div>
           <span className="badge">{workspace.syncPoints.length} puntos</span>
@@ -499,6 +500,7 @@ export function VideoSetupPanel({
         )}
       </section>
 
+      </fieldset>
       <div className="workspace-next-card">
         <button
           className="button button-secondary"
@@ -509,7 +511,7 @@ export function VideoSetupPanel({
           ← Convocatoria
         </button>
         <div className="workspace-next-copy">
-          <span className="eyebrow">Seguinte</span>
+
           <strong>Tagging do partido</strong>
           <small>
             {workspace.mode === 'live'

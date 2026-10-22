@@ -1,69 +1,76 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/auth-context'
+import { analysisPageSize, listOwnedAnalyses } from '../data/dashboard'
+import { analysisResumePath, formatUpdatedAt, groupAnalyses, type AnalysisListItem } from '../domain/dashboard'
+import { analysisStatusLabels, formatProductDate } from '../domain/presentation'
+import { formatMatchDate } from '../domain/matches'
 
-export function DashboardPage() {
-  const { isAnonymous } = useAuth()
-
-  return (
-    <div className="page-stack">
-      <section className="page-heading">
-        <div>
-          <span className="eyebrow">O teu espazo de análise</span>
-          <h1>Que queres revisar hoxe?</h1>
-          <p>
-            Crea un novo análise ou continúa un partido xa preparado. O histórico
-            aparecerá aquí a medida que completes análises.
-          </p>
+function AnalysisList({ title, items }: { title: string; items: AnalysisListItem[] }) {
+  return <section className="analysis-list-section" aria-label={title}>
+    <h2>{title} <span className="list-count">{items.length}</span></h2>
+    {items.length === 0 ? <p className="list-empty">Non hai análises nesta sección.</p> : <ul className="analysis-list">
+      {items.map((item) => <li className="analysis-list-row" key={item.id}>
+        <div className="analysis-list-match">
+          <h3>{item.homeTeam} <span aria-hidden="true">—</span> {item.awayTeam}</h3>
+          <span>{item.title ? `${item.title} · ` : ''}{formatMatchDate(item.scheduledAt)}</span>
+          <small>{item.eventCount} {item.eventCount === 1 ? 'evento' : 'eventos'} · {item.videoCount > 0 ? 'Vídeo configurado' : 'Sen vídeo'}</small>
         </div>
-        <Link className="button button-primary" to="/app/new">
-          Novo análise
+        <div className="analysis-list-status"><span className={`badge status-${item.status}`}>{analysisStatusLabels[item.status]}</span>
+          <time dateTime={item.updatedAt} title={formatProductDate(item.updatedAt)}>{formatUpdatedAt(item.updatedAt)}</time></div>
+        <Link className="button button-secondary" to={analysisResumePath(item)}
+          aria-label={`${item.status === 'completed' ? 'Revisar' : 'Continuar'} análise: ${item.homeTeam} — ${item.awayTeam}`}>
+          {item.status === 'completed' ? 'Revisar análise' : 'Continuar análise'} <span aria-hidden="true">→</span>
         </Link>
-      </section>
-
-      {isAnonymous ? (
-        <aside className="guest-banner">
-          <div>
-            <strong>Estás traballando como invitado.</strong>
-            <p>
-              Podes probar o fluxo completo neste navegador. Máis adiante poderás
-              ligar esta mesma sesión a unha conta sen mover os teus datos.
-            </p>
-          </div>
-          <span className="badge">Sesión temporal</span>
-        </aside>
-      ) : null}
-
-      <section className="dashboard-grid">
-        <article className="dashboard-card dashboard-card-primary">
-          <span className="eyebrow">Comezar</span>
-          <h2>Analiza un partido</h2>
-          <p>
-            Escolle o encontro, prepara a convocatoria e decide se vas traballar
-            desde vídeo ou en modo directo.
-          </p>
-          <Link className="text-link" to="/app/new">
-            Preparar análise →
-          </Link>
-        </article>
-
-        <article className="dashboard-card">
-          <span className="eyebrow">Histórico</span>
-          <h2>Aínda sen análises completados</h2>
-          <p>
-            Os resumos de equipo, evolución e scouting usarán un único análise
-            principal por partido para evitar duplicados.
-          </p>
-        </article>
-
-        <article className="dashboard-card">
-          <span className="eyebrow">Próximo</span>
-          <h2>O fluxo xa está preparado</h2>
-          <p>
-            Partido → convocatoria → vídeo → tagging → posesións → conclusións.
-            A seguinte pantalla conecta este shell co calendario real.
-          </p>
-        </article>
-      </section>
-    </div>
-  )
+      </li>)}
+    </ul>}
+  </section>
+}
+export function DashboardPage() {
+  const { session, isAnonymous } = useAuth()
+  const ownerId = session?.user.id
+  const [items, setItems] = useState<AnalysisListItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [retry, setRetry] = useState(0)
+  const request = useRef<AbortController | null>(null)
+  const pending = useRef(false)
+  const nextOffset = useRef(0)
+  useEffect(() => {
+    const controller = new AbortController()
+    request.current = controller
+    setLoading(true); setItems([]); setError(null)
+    if (!ownerId) { setLoading(false); return () => controller.abort() }
+    void listOwnedAnalyses(ownerId, 0, controller.signal).then((rows) => {
+      if (controller.signal.aborted) return
+      setItems(rows); nextOffset.current = rows.length; setHasMore(rows.length === analysisPageSize)
+    }).catch((caught) => {
+      if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : 'Fallou a carga.')
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [ownerId, retry])
+  async function loadMore() {
+    if (!ownerId || pending.current || loading) return
+    pending.current = true; setLoading(true); setError(null)
+    const signal = request.current?.signal ?? new AbortController().signal
+    try {
+      const rows = await listOwnedAnalyses(ownerId, nextOffset.current, signal)
+      if (!signal.aborted) { nextOffset.current += rows.length; setItems((current) => [...new Map([...current, ...rows].map((row) => [row.id, row])).values()]); setHasMore(rows.length === analysisPageSize) }
+    } catch (caught) { if (!signal.aborted) setError(caught instanceof Error ? caught.message : 'Fallou a carga.') }
+    finally { pending.current = false; if (!signal.aborted) setLoading(false) }
+  }
+  const groups = groupAnalyses(items)
+  return <div className="page-stack dashboard-page">
+    <section className="page-heading"><div><h1>Os teus análises</h1><p>Continúa un partido ou revisa os que xa completaches.</p></div>
+      <Link className="button button-primary" to="/app/new">Novo análise</Link></section>
+    {isAnonymous ? <p className="guest-banner">Sesión de invitado: para retomar o traballo, volve desde este mesmo navegador.</p> : null}
+    {error ? <div className="form-error" role="alert"><span>{error}</span>
+      <button className="button button-secondary" type="button" disabled={loading} onClick={() => { if (items.length) void loadMore(); else setRetry((value) => value + 1) }}>Reintentar</button></div> : null}
+    {loading ? <p role="status">Cargando análises…</p> : null}
+    {!loading && !error && items.length === 0 ? <section className="empty-state"><h2>Aínda non tes análises.</h2><p>Escolle «Novo análise» para preparar un partido e a súa convocatoria.</p></section> : null}
+    {items.length > 0 ? <><AnalysisList title="En curso" items={groups.ongoing} /><AnalysisList title="Completados" items={groups.completed} /></> : null}
+    {hasMore ? <p className="form-hint">Mostrando {items.length} análises cargados. Carga máis para ver o resto.</p> : null}
+    {hasMore && !error ? <button className="button button-secondary load-more" type="button" disabled={loading} onClick={() => { void loadMore() }}>Cargar máis análises</button> : null}
+  </div>
 }

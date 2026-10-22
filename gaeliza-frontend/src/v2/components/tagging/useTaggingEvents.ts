@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { listAnalysisEvents } from '../../data/tagging'
+import type { SaveState } from '../PersistenceStatus'
 import type { AnalysisEventSummary } from '../../domain/tagging'
 
-export function useTaggingEvents(analysisId: string, onWorkspaceChanged: () => Promise<void>) {
+export function useTaggingEvents(analysisId: string, onWorkspaceChanged: () => Promise<void>,
+  onSaveStateChange?: (state: SaveState) => void, onInteractionLockChange?: (locked: boolean) => void) {
+  const [saveState, setSaveState] = useState<SaveState>('idle')
+  function reportSaveState(state: SaveState) { setSaveState(state); onSaveStateChange?.(state) }
   const [events, setEvents] = useState<AnalysisEventSummary[]>([])
   const [needsRefresh, setNeedsRefresh] = useState(false)
   const mutationPending = useRef(false)
@@ -52,6 +56,8 @@ export function useTaggingEvents(analysisId: string, onWorkspaceChanged: () => P
     }
   }, [analysisId])
 
+  useEffect(() => { onInteractionLockChange?.(busy || loadingEvents || needsRefresh) }, [busy, loadingEvents, needsRefresh, onInteractionLockChange])
+
   async function refreshData() {
     if (mutationPending.current) return
     mutationPending.current = true
@@ -84,10 +90,12 @@ export function useTaggingEvents(analysisId: string, onWorkspaceChanged: () => P
     setNotice(null)
     const signal = lifetime.current?.signal
     let saved = false
+    reportSaveState('pending')
 
     try {
       const message = await action()
       saved = true
+      if (!signal?.aborted) reportSaveState('saved')
       if (signal?.aborted) return saved
       setNotice(message)
       setNeedsRefresh(true)
@@ -103,6 +111,7 @@ export function useTaggingEvents(analysisId: string, onWorkspaceChanged: () => P
       }
     } catch (caughtError) {
       if (signal?.aborted) return saved
+      if (!saved) reportSaveState('error')
       const message = caughtError instanceof Error
         ? caughtError.message
         : 'Non puidemos completar a acción.'
@@ -117,5 +126,5 @@ export function useTaggingEvents(analysisId: string, onWorkspaceChanged: () => P
     return saved
   }
 
-  return { events, loadingEvents, busy, error, notice, needsRefresh, refreshData, runTaggingMutation }
+  return { saveState, events, loadingEvents, busy, error, notice, needsRefresh, refreshData, runTaggingMutation }
 }
