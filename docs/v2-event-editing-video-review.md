@@ -126,3 +126,52 @@ la UI explícita de asociación/corrección de posesiones manuales, la edición 
 relación tarjeta/falta y una posible señal persistente de posesiones pendientes.
 No bloquean esta entrega: las decisiones actuales favorecen conservar datos y
 rechazar cambios ambiguos. No se ha hecho merge ni activado auto-merge.
+
+## Corrección de concurrencia tras revisión humana
+
+La revisión detectó que el token solo cambiaba al escribir `events`, aunque RLS
+permite mutar directamente detalles o insertar/borrar roles. Un editor antiguo
+podía por tanto sobrescribir un cambio hijo no detectado. Se corrige únicamente
+en la nueva migración `20261022110000_version_event_child_mutations.sql`, sin
+modificar migraciones publicadas ni los RPC, sus grants o las políticas RLS.
+
+- `events_set_updated_at` pasa a una función específica de eventos, invoker. Usa
+  `greatest(clock_timestamp(), old.updated_at + interval '1 microsecond')` para
+  avanzar estrictamente incluso dentro de una transacción o con ajuste de reloj.
+  Ignora el timestamp enviado por el cliente y recupera tokens no finitos usando
+  el reloj actual. El helper genérico `private.set_updated_at` queda intacto para
+  las demás tablas.
+- Las diez tablas de detalles y `event_participants` tienen un trigger AFTER
+  INSERT/UPDATE/DELETE, también invoker. Por cada fila realmente modificada toca
+  cada padre distinto una vez. Si una reasignación está permitida, versiona tanto
+  el padre anterior como el nuevo. Un UPDATE sin cambios no escribe el padre.
+- El guard BEFORE `event_child_require_editable_analysis` mantiene los locks y la
+  prohibición completed. El UPDATE del padre sigue sujeto a RLS y los triggers
+  existentes; no existe un camino de vuelta hacia hijos ni recursión. No hay flags
+  de sesión que permitan eludir la versión durante un RPC.
+- En el cascade de un evento eliminado, el padre ya no existe y el UPDATE afecta
+  cero filas. En cambio, borrar una falta que provoca SET NULL en una tarjeta
+  superviviente sí avanza la versión de esa tarjeta. Los errores y rollbacks
+  revierten todos los cambios de versión junto con las filas.
+- Authenticated tiene grant UPDATE sobre `event_participants`, pero actualmente
+  ninguna política UPDATE: el owner modifica cero filas por ese camino. Se mantiene
+  esta restricción. El trigger cubre igualmente UPDATE; las pruebas de esa ruta y
+  de reasignación usan mantenimiento privilegiado **solo en PostgreSQL local**,
+  sin añadir políticas ni permisos al producto.
+
+Validación repetida de la corrección:
+
+- Las 25 migraciones desde cero en PostgreSQL 17 desechable; cuatro suites verdes:
+  46 + 40 + 46 anteriores y 119 nuevas, **251 aserciones**. La suite nueva cubre
+  I/U/D en cada tabla tipada, roles, no-ops, ambos padres de una reasignación,
+  stale 40001, log_event/update_event, versiones dentro de una transacción,
+  rollback, completed y ambos tipos de cascade.
+- Se verificó que la regresión falla contra las primeras 24 migraciones al no
+  avanzar la versión tras un UPDATE solo de shot_events, y pasa tras la nueva.
+- Además se comprobó en sesiones/transacciones separadas: lectura de versión,
+  commit de cambio directo de detalle/rol, RPC stale rechazado con 40001, RPC
+  vigente correcto y eliminación con cascade.
+- `npm ci`, `npm audit --audit-level=high` (0 vulnerabilidades), lint y build: exit 0.
+  Node: 106/106. Browser: 27 escenarios / 28 resultados, todos verdes.
+- Sin cambios frontend, dependencias, configuración CI ni Supabase remoto. Sigue
+  únicamente el warning conocido del bundle >500 kB.
