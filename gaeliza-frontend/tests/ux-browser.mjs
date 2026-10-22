@@ -25,7 +25,7 @@ const source=`
   import '/src/v2/styles/tagging.css'
   initializeTheme()
   const session=${JSON.stringify(session)}
-  const auth={session,status:'ready',error:null,isAnonymous:true,ensureGuestSession:async()=>session,signOut:async()=>{}}
+  const auth={session,status:'ready',error:null,isAnonymous:true,ensureGuestSession:async()=>session,retrySession:()=>{},signOut:async()=>{}}
   createRoot(document.getElementById('root')).render(<AuthContext.Provider value={auth}><BrowserRouter><Routes>
     <Route path="/" element={<LandingPage/>}/>
     <Route path="/app" element={<AppShell/>}>
