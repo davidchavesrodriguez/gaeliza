@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { TeamRoster } from '../components/TeamRoster'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { completeAnalysis } from '../data/analyses'
 import { reopenAnalysis } from '../data/tagging'
 import { PersistenceStatus, type SaveState } from '../components/PersistenceStatus'
 import { CompleteAnalysisDialog } from '../components/CompleteAnalysisDialog'
-import { analysisStatusLabels, positionLabel } from '../domain/presentation'
+import { analysisStatusLabels } from '../domain/presentation'
 import { workspaceStep, type WorkspaceStep } from '../domain/workspace-navigation'
 import { TaggingPanel } from '../components/TaggingPanel'
 import { VideoSetupPanel } from '../components/VideoSetupPanel'
@@ -20,98 +21,12 @@ import {
   setPeriodAttackingDirection,
 } from '../data/analysis-workspace'
 import {
-  getPlayerDisplayName,
   type AnalysisParticipant,
   type AnalysisWorkspace,
   type AttackingDirection,
   type RosterPlayer,
 } from '../domain/analysis'
-import { formatMatchDate, type TeamSummary } from '../domain/matches'
-
-
-function TeamRoster({
-  team,
-  participants,
-  availablePlayers,
-  busy,
-  onAddPlayer,
-  onRemoveParticipant,
-}: {
-  team: TeamSummary
-  participants: AnalysisParticipant[]
-  availablePlayers: RosterPlayer[]
-  busy: boolean
-  onAddPlayer: (player: RosterPlayer) => void
-  onRemoveParticipant: (participant: AnalysisParticipant) => void
-}) {
-  return (
-    <section className="roster-team-card">
-      <div className="roster-team-heading">
-        <div>
-
-          <h2>{team.name}</h2>
-        </div>
-        <span className="badge">{participants.length} {participants.length === 1 ? 'convocado' : 'convocados'}</span>
-      </div>
-
-      <div className="participant-list">
-        {participants.length === 0 ? (
-          <p className="roster-empty">Aínda non hai xogadores na convocatoria.</p>
-        ) : (
-          participants.map((participant) => (
-            <div className="participant-row" key={participant.id}>
-              <span className="participant-number">
-                {participant.number ? `#${participant.number}` : '—'}
-              </span>
-              <div className="participant-identity">
-                <strong>{participant.displayName}</strong>
-                <small>
-                  {participant.playerId ? 'Xogador do equipo' : 'Nome provisional'}
-                  {participant.position ? ` · ${positionLabel(participant.position)}` : ''}
-                </small>
-              </div>
-              <button
-                className="participant-remove"
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  onRemoveParticipant(participant)
-                }}
-              >
-                Quitar
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-
-      {availablePlayers.length > 0 ? (
-        <div className="available-roster">
-          <span className="roster-subheading">Dispoñibles no equipo</span>
-          <div className="available-player-list">
-            {availablePlayers.map((player) => (
-              <button
-                className="available-player"
-                type="button"
-                key={player.playerId}
-                disabled={busy}
-                onClick={() => {
-                  onAddPlayer(player)
-                }}
-              >
-                <span>
-                  {player.defaultNumber ? `#${player.defaultNumber} · ` : ''}
-                  {getPlayerDisplayName(player)}
-                </span>
-                <strong>Engadir +</strong>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </section>
-  )
-}
+import { formatMatchDate } from '../domain/matches'
 
 export function AnalysisWorkspacePage() {
   const { analysisId } = useParams<{ analysisId: string }>()
@@ -134,9 +49,7 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [revision, setRevision] = useState(0)
-  const [temporaryTeamId, setTemporaryTeamId] = useState('')
-  const [temporaryName, setTemporaryName] = useState('')
-  const [temporaryNumber, setTemporaryNumber] = useState('')
+  const [temporaryDrafts, setTemporaryDrafts] = useState<Record<string, { name: string; number: string }>>({})
 
   useEffect(() => {
     if (!analysisId) {
@@ -159,16 +72,6 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
 
         setWorkspace(nextWorkspace)
         setRequiresReload(false)
-        setTemporaryTeamId((current) => {
-          const validTeamIds = [
-            nextWorkspace.homeTeam.id,
-            nextWorkspace.awayTeam.id,
-          ]
-
-          return validTeamIds.includes(current)
-            ? current
-            : nextWorkspace.awayTeam.id
-        })
         setError(null)
       })
       .catch((caughtError) => {
@@ -274,37 +177,6 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
     void runMutation(() => removeAnalysisParticipant(participant.id))
   }
 
-  function handleAddTemporary(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    if (!analysisId || !temporaryTeamId || !temporaryName.trim()) {
-      return
-    }
-
-    const parsedNumber = temporaryNumber.trim()
-      ? Number.parseInt(temporaryNumber, 10)
-      : null
-
-    if (
-      parsedNumber !== null &&
-      (!Number.isInteger(parsedNumber) || parsedNumber <= 0)
-    ) {
-      setError('O dorsal debe ser un número enteiro maior ca cero.')
-      return
-    }
-
-    void runMutation(async () => {
-      await addTemporaryParticipant({
-        analysisId,
-        teamId: temporaryTeamId,
-        displayName: temporaryName,
-        number: parsedNumber,
-      })
-      setTemporaryName('')
-      setTemporaryNumber('')
-    })
-  }
-
   if (loading && (!workspace || workspace.id !== analysisId)) {
     return (
       <div className="centered-panel" aria-live="polite">
@@ -408,92 +280,10 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
         />
       ) : (
         <>
-          <fieldset className="workspace-fields" disabled={busy || loading || requiresReload || workspace.status === 'completed'}>
-          <div className="roster-grid">
-            {teams.map((team) => (
-              <TeamRoster
-                key={team.id}
-                team={team}
-                participants={participantsByTeam.get(team.id) ?? []}
-                availablePlayers={availablePlayersByTeam.get(team.id) ?? []}
-                busy={busy}
-                onAddPlayer={handleAddRosterPlayer}
-                onRemoveParticipant={handleRemoveParticipant}
-              />
-            ))}
-          </div>
-
-          <section className="state-card temporary-player-card">
+          <div className="workspace-next-card roster-navigation">
             <div>
 
-              <h2>Engadir á convocatoria</h2>
-              <p>
-                Usa o nome ou dorsal se aínda non coñeces o xogador. A identidade queda asociada só a esta análise.
-              </p>
-            </div>
-
-            <form className="temporary-player-form" onSubmit={handleAddTemporary}>
-              <label>
-                <span>Equipo</span>
-                <select
-                  value={temporaryTeamId}
-                  disabled={busy}
-                  onChange={(event) => {
-                    setTemporaryTeamId(event.target.value)
-                  }}
-                >
-                  {teams.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                <span>Nome ou etiqueta</span>
-                <input
-                  type="text"
-                  value={temporaryName}
-                  disabled={busy}
-                  maxLength={200}
-                  placeholder="Ex. #8 ou Dianteiro 12"
-                  onChange={(event) => {
-                    setTemporaryName(event.target.value)
-                  }}
-                />
-              </label>
-
-              <label>
-                <span>Dorsal</span>
-                <input
-                  type="number"
-                  min="1"
-                  inputMode="numeric"
-                  value={temporaryNumber}
-                  disabled={busy}
-                  placeholder="8"
-                  onChange={(event) => {
-                    setTemporaryNumber(event.target.value)
-                  }}
-                />
-              </label>
-
-              <button
-                className="button button-secondary"
-                type="submit"
-                disabled={busy || !temporaryName.trim()}
-              >
-                {busy ? 'Gardando…' : 'Engadir temporal'}
-              </button>
-            </form>
-          </section>
-
-          </fieldset>
-          <div className="workspace-next-card">
-            <div>
-
-              <strong>Vídeo, sincronización e orientación do campo</strong>
+              <strong>Vídeo e sincronización</strong>
             </div>
             <button
               className="button button-primary"
@@ -507,6 +297,28 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
               Continuar
             </button>
           </div>
+          <fieldset className="workspace-fields" disabled={busy || loading || requiresReload || workspace.status === 'completed'}>
+          <div className="roster-grid">
+            {teams.map((team) => (
+              <TeamRoster
+                key={team.id}
+                team={team}
+                draft={temporaryDrafts[team.id] ?? { name: '', number: '' }}
+                onDraftChange={(draft) => setTemporaryDrafts((current) => ({ ...current, [team.id]: draft }))}
+                participants={participantsByTeam.get(team.id) ?? []}
+                availablePlayers={availablePlayersByTeam.get(team.id) ?? []}
+                busy={busy}
+                onAddPlayer={handleAddRosterPlayer}
+                onRemoveParticipant={handleRemoveParticipant}
+                onAddTemporary={(displayName, number) => runMutation(() => addTemporaryParticipant({
+                  analysisId, teamId: team.id, displayName, number,
+                }))}
+              />
+            ))}
+          </div>
+
+          </fieldset>
+
         </>
       )}
     </div>
