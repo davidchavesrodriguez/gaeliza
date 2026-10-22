@@ -5,7 +5,6 @@ type Props = { draft: DraftOf<'shot'>; disabled: boolean; onChange: (draft: Draf
 export function ShotFields({ draft, disabled, onChange }: Props) {
   return <div className="tagging-detail-grid">
     <ChoiceField label="Resultado" value={draft.detail.result} options={shotResults}
-      labels={{"goal": "Gol", "point": "Punto", "wide": "Fóra", "saved": "Parado", "blocked": "Bloqueado", "post": "Pao"}}
       optional={true} disabled={disabled} onChange={(value) => { onChange({ ...draft, detail: { ...draft.detail, result: value } }) }} />
     <ChoiceField label="Técnica" value={draft.detail.technique} options={techniques}
       labels={{"hand": "Man", "foot": "Pé"}}

@@ -130,7 +130,7 @@ export function isCoordinatePair(x: number | null, y: number | null) {
 }
 
 export function buildCaptureInput(form: CaptureFormState, workspace: AnalysisWorkspace): LogQuickEventInput {
-  if (workspace.status === 'completed') throw new Error('Reabre o análise antes de engadir ou editar eventos.')
+  if (workspace.status === 'completed') throw new Error('Reabre a análise antes de engadir ou editar eventos.')
   if (![workspace.homeTeam.id, workspace.awayTeam.id].includes(form.teamId)) throw new Error('Escolle un equipo válido.')
   if (!workspace.periods.some((period) => period.id === form.periodId)) throw new Error('Escolle un período válido.')
   const secondInPeriod = parseAnalysisClock(form.clock, { integer: true })

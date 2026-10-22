@@ -32,7 +32,9 @@ test('presentation translates internal enums while preserving free-text position
   assert.equal(positionLabel('Lateral esquerdo'),'Lateral esquerdo')
   for(const raw of ['intercepted','open_play','contested_won','goalkeeper_out','bad_control','kickout_receiver'])assert.notEqual(domainLabel(raw),raw)
   assert.equal(domainLabel('future_enum'),'Sen especificar');assert.equal(domainLabel(null),'Sen especificar')
-  assert.deepEqual(Object.values(analysisStatusLabels),['Borrador','En curso','Completado'])
+  assert.deepEqual(Object.values(analysisStatusLabels),['Borrador','En curso','Completada'])
+  assert.equal(domainLabel('out_of_play'),'Balón fóra')
+  assert.equal(domainLabel('completed'),'Completado') // A completed pass remains masculine.
 })
 test('theme follows OS unless a valid stored preference overrides it', () => {
   assert.equal(resolveTheme(null,true),'dark');assert.equal(resolveTheme(null,false),'light')

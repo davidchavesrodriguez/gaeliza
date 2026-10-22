@@ -28,7 +28,7 @@ export function AppShell() {
             to="/app/new"
             className={({ isActive }) => (isActive ? 'active' : undefined)}
           >
-            Novo análise
+            Nova análise
           </NavLink>
         </nav>
 

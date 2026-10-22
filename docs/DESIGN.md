@@ -87,8 +87,12 @@ cada tecla del borrador se guarda automáticamente.
 
 Filas con divisores, campos alineados y acciones al final. Un análisis muestra
 partido/fecha, estado traducido, última modificación disponible y progreso real
-barato si existe; sin porcentajes inventados. En curso agrupa draft/in_progress;
-completados es una sección independiente. Paginación explícita, no truncado oculto.
+barato si existe; sin porcentajes inventados. «En curso» agrupa draft/in_progress;
+«Completadas» es una sección independiente. La etiqueta de actualización y la
+paginación usan exclusivamente `analyses.updated_at`, mantenido por la DB para
+todo el workspace (convocatoria, períodos, vídeos, sync y eventos, incluidos sus
+detalles/roles). No aproximar la actividad leyendo solo el último evento.
+Paginación explícita, no truncado oculto.
 Estados con texto, no solo color. Guardado discreto y accesible: Gardando… mientras
 existe escritura pendiente; Gardado tras confirmación; Erro ao gardar ante fallo.
 Un fallo de lectura posterior a un commit se explica como recarga pendiente, no
@@ -145,7 +149,12 @@ gaélico: preparar partido/convocatoria, sincronizar vídeo, registrar y revisar
 Layout editorial, una acción de entrada clara y flujo concreto. Sin porcentajes,
 marcadores ficticios, stock, imágenes generadas, capability-card grid, claims de IA
 ni frases como «obtén insights» o «leva a análise ao seguinte nivel».
-Galego coherente. Enums internos se traducen en un mapping central, nunca en DB.
+Galego coherente. «Análise» es femenino, también en plural: «Nova análise»,
+«As túas análises», «Análise completada/finalizada», «Reábrea» o «reabrila» según
+la frase. Mantener concordancia en navegación, estados y errores. Esto no cambia
+el género de otros sustantivos: un «Pase completado» sigue siendo masculino.
+Enums internos se traducen en un mapping central, nunca en DB. `out_of_play`
+se presenta como «Balón fóra»; no «Fóra de xogo», que sugiere offside.
 Goalkeeper → Porteiro; Defender → Defensa; Midfield/Midfielder → Centrocampista;
 Forward → Dianteiro; Attacker → Atacante. «Saque de porta» evita confundir kickout
 con cualquier reinicio. Desconocido se presenta como tal, no como un identificador.

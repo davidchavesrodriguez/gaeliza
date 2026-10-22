@@ -115,7 +115,7 @@ function TeamRoster({
 
 export function AnalysisWorkspacePage() {
   const { analysisId } = useParams<{ analysisId: string }>()
-  if (!analysisId) return <section><Link to="/app">← Inicio</Link><h1>Falta o identificador do análise.</h1></section>
+  if (!analysisId) return <section><Link to="/app">← Inicio</Link><h1>Falta o identificador da análise.</h1></section>
   return <AnalysisWorkspaceView key={analysisId} analysisId={analysisId} />
 }
 
@@ -140,7 +140,7 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
 
   useEffect(() => {
     if (!analysisId) {
-      setError('Falta o identificador do análise.')
+      setError('Falta o identificador da análise.')
       setLoading(false)
       return
     }
@@ -179,7 +179,7 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
         setError(
           caughtError instanceof Error
             ? caughtError.message
-            : 'Non puidemos cargar o análise.',
+            : 'Non puidemos cargar a análise.',
         )
       })
       .finally(() => {
@@ -252,7 +252,7 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
     } catch (caught) {
       if (!signal?.aborted) {
         if (!saved) setSaveState('error')
-        const message = caught instanceof Error ? caught.message : 'Non puidemos actualizar o análise.'
+        const message = caught instanceof Error ? caught.message : 'Non puidemos actualizar a análise.'
         setError(saved ? `A acción gardouse, pero fallou a recarga. Non a repitas. ${message}` : message)
       }
     } finally {
@@ -319,8 +319,8 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
     return (
       <section className="state-card">
         <Link to="/app">← Inicio</Link>
-        <h1>Non puidemos abrir este análise.</h1>
-        <p>{error ?? 'O análise non existe ou non tes acceso.'}</p>
+        <h1>Non puidemos abrir esta análise.</h1>
+        <p>{error ?? 'A análise non existe ou non tes acceso.'}</p>
         <button className="button button-secondary" type="button" onClick={() => setRevision((value) => value + 1)}>Reintentar</button>
       </section>
     )
@@ -346,8 +346,8 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
               onClick={() => { setError(null); setConfirmingComplete(true) }}>Finalizar análise</button>}
         </div>
       </header>
-      {workspace.status === 'completed' ? <p className="completed-summary">Análise finalizado. Os datos consérvanse; podes revisar a timeline e navegar polo vídeo. Reábreo para facer cambios.</p> : null}
-      <nav className="workspace-step-strip" aria-label="Seccións do análise">
+      {workspace.status === 'completed' ? <p className="completed-summary">Análise finalizada. Os datos consérvanse; podes revisar a timeline e navegar polo vídeo. Reábrea para facer cambios.</p> : null}
+      <nav className="workspace-step-strip" aria-label="Seccións da análise">
         {([['roster','Convocatoria'],['video','Vídeo e sincronización'],['tagging','Tagging']] as const).map(([step,label]) =>
           <button key={step} type="button" className={`workspace-step${activeStep === step ? ' workspace-step-active' : ''}`}
             aria-current={activeStep === step ? 'page' : undefined} disabled={busy || taggingLocked}
@@ -428,7 +428,7 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
 
               <h2>Engadir á convocatoria</h2>
               <p>
-                Usa o nome ou dorsal se aínda non coñeces o xogador. A identidade queda asociada só a este análise.
+                Usa o nome ou dorsal se aínda non coñeces o xogador. A identidade queda asociada só a esta análise.
               </p>
             </div>
 

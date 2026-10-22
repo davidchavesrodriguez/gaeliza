@@ -71,9 +71,9 @@ export function TaggingPanel({ workspace, onBack, onWorkspaceChanged, lifecycleM
       {workspace.status === 'completed' && !lifecycleManaged ? (
         <div className="tagging-readonly-banner">
           <div>
-            <strong>Análise completado.</strong>
+            <strong>Análise completada.</strong>
             <span>
-              Os eventos están bloqueados para evitar cambios accidentais. Reábreo se
+              Os eventos están bloqueados para evitar cambios accidentais. Reábrea se
               necesitas corrixir o tagging.
             </span>
           </div>
@@ -82,7 +82,7 @@ export function TaggingPanel({ workspace, onBack, onWorkspaceChanged, lifecycleM
             type="button"
             disabled={busy}
             onClick={() => {
-              void runTaggingMutation(async () => { await reopenAnalysis(workspace.id); return 'Análise reaberto. Xa podes volver editar eventos.' })
+              void runTaggingMutation(async () => { await reopenAnalysis(workspace.id); return 'Análise reaberta. Xa podes volver editar eventos.' })
             }}
           >
             Reabrir análise

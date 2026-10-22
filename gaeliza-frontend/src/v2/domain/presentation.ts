@@ -1,16 +1,16 @@
 // Presentation only. Stored enum values and participant snapshots never change.
-export const analysisStatusLabels = { draft: 'Borrador', in_progress: 'En curso', completed: 'Completado' } as const
+export const analysisStatusLabels = { draft: 'Borrador', in_progress: 'En curso', completed: 'Completada' } as const
 const terms: Readonly<Record<string, string>> = {
   goalkeeper: 'Porteiro', defender: 'Defensa', midfielder: 'Centrocampista', midfield: 'Centrocampista',
   forward: 'Dianteiro', attacker: 'Atacante', full_back: 'Defensa central', half_back: 'Defensa lateral',
   half_forward: 'Medio dianteiro', full_forward: 'Dianteiro central',
-  goal: 'Gol', point: 'Punto', wide: 'Fóra', saved: 'Parado', blocked: 'Bloqueado', post: 'Pao',
+  goal: 'Gol', point: 'Punto', wide: 'Fóra', saved: 'Parado', blocked: 'Bloqueado', post: 'Pau',
   completed: 'Completado', incomplete: 'Incompleto', intercepted: 'Interceptado',
   hand: 'Man', foot: 'Pé', open_play: 'Xogo aberto', free: 'Libre', forty_five: '45 metros', penalty: 'Penalti',
   interception: 'Intercepción', tackle: 'Entrada', loose_ball: 'Balón dividido', rebound: 'Rexeitamento',
   kickout: 'Saque de porta', other: 'Outro', bad_pass: 'Pase defectuoso', bad_control: 'Mal control',
-  steps: 'Pasos', out_of_play: 'Fóra de xogo', offensive_foul: 'Falta en ataque', dispossessed: 'Balón roubado',
-  holding: 'Agarre', striking: 'Golpe', obstruction: 'Obstrución', pickup: 'Recollida', push: 'Empurrón', trip: 'Zancadilla',
+  steps: 'Pasos', out_of_play: 'Balón fóra', offensive_foul: 'Falta en ataque', dispossessed: 'Balón roubado',
+  holding: 'Agarre', striking: 'Golpe', obstruction: 'Obstrución', pickup: 'Recollida', push: 'Empurrón', trip: 'Cambadela',
   advantage: 'Vantaxe', none: 'Sen sanción', yellow: 'Amarela', black: 'Negra', red: 'Vermella',
   short: 'Curto', long: 'Longo', retained: 'Retido', contested_won: 'Disputado gañado',
   contested_lost: 'Disputado perdido', directly_lost: 'Perdido directo',

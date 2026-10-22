@@ -157,7 +157,7 @@ export function CreateAnalysisPage() {
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : 'Non puidemos crear o análise.',
+          : 'Non puidemos crear a análise.',
       )
       setCreating(false)
     }
@@ -167,10 +167,10 @@ export function CreateAnalysisPage() {
     <div className="page-stack">
       <section className="page-heading page-heading-narrow">
         <div>
-          <span className="eyebrow">Novo análise</span>
+          <span className="eyebrow">Nova análise</span>
           <h1>Prepara o partido antes de empezar a etiquetar.</h1>
           <p>
-            Escolle o encontro e o modo de traballo. O análise créase de forma
+            Escolle o encontro e o modo de traballo. A análise créase de forma
             atómica coa estrutura de períodos xa preparada.
           </p>
         </div>

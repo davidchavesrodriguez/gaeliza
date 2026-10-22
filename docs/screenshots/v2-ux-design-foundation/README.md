@@ -1,6 +1,7 @@
 # Capturas de revisión UX v2
 
-Capturas de la implementación en `4a4947e`, generadas con el browser smoke local.
+Capturas actualizadas tras la revisión de actividad del agregado y copy gallego,
+generadas con el browser smoke local.
 Los equipos, análisis y eventos son fixtures identificadas de prueba; el vídeo
 es un WebM negro local. No son datos de usuarios ni actividad de producción.
 

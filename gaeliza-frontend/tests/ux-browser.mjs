@@ -51,6 +51,11 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
   const page=await context.newPage();page.setDefaultTimeout(5000)
   const errors=[];page.on('pageerror',error=>errors.push(error.message))
   const events=new Map([['ongoing',[fact('first','ongoing')]],['draft',[]],['previous',[fact('previous-first','previous')]]])
+  const aggregateActivity=new Map(fixtures.map((item,index)=>[item.id,new Date(Date.parse(timestamp)-index*60_000).toISOString()]))
+  const participants=new Map(fixtures.map(item=>[item.id,[
+    {id:'home1',team_id:'home',player_id:null,display_name_snapshot:'Xogador local 1',number:1,starter:true,initial_goalkeeper:true,position:'Goalkeeper'},
+    {id:'away2',team_id:'away',player_id:null,display_name_snapshot:'Xogador visitante 2',number:2,starter:true,initial_goalkeeper:false,position:'Defender'},
+  ]]))
   const writes=[]
   let empty=false,failComplete=false,holdWrite=null
   const media=await readFile(new URL('fixtures/tagging.webm',import.meta.url))
@@ -73,22 +78,31 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
         if(holdWrite)await holdWrite
         if(failComplete&&input.status==='completed')return reply(route,{message:'Fixture completion failed'},400)
         fixtures.find(item=>item.id===id).status=input.status
+        aggregateActivity.set(id,new Date().toISOString())
         return reply(route,{id})
       }
       if(url.searchParams.has('owner_user_id')){
         assert.equal(url.searchParams.get('owner_user_id'),'eq.fixture-owner')
-        return reply(route,empty?[]:fixtures.map(item=>({...item,updated_at:timestamp,
+        assert.equal(url.searchParams.get('order'),'updated_at.desc,id.asc')
+        assert.doesNotMatch(url.searchParams.get('select'),/activity:|events\(updated_at\)/)
+        const sorted=[...fixtures].sort((a,b)=>Date.parse(aggregateActivity.get(b.id))-Date.parse(aggregateActivity.get(a.id))||a.id.localeCompare(b.id))
+        return reply(route,empty?[]:sorted.map(item=>({...item,updated_at:aggregateActivity.get(item.id),
           match:{scheduled_at:'2026-10-22T15:00:00Z',home:{name:home.name},away:{name:away.name}},
-          event_count:[{count:events.get(item.id).length}],videos:[{count:item.id==='draft'?0:3}],activity:[]})))
+          event_count:[{count:events.get(item.id).length}],videos:[{count:item.id==='draft'?0:3}]})))
       }
       const id=url.searchParams.get('id').slice(3),item=fixtures.find(item=>item.id===id)
       return reply(route,{...item,mode:'post_match',match_id:`match-${id}`,match:{id:`match-${id}`,scheduled_at:'2026-10-22T15:00:00Z',home_team:home,away_team:away}})
     }
     if(url.pathname.endsWith('/analysis_periods'))return reply(route,[{id:`${ownerId(url)}-period`,number:1,name:'Primeira parte',expected_duration_seconds:1800,home_attacks_towards:'right'}])
-    if(url.pathname.endsWith('/analysis_participants'))return reply(route,[
-      {id:'home1',team_id:'home',player_id:null,display_name_snapshot:'Xogador local 1',number:1,starter:true,initial_goalkeeper:true,position:'Goalkeeper'},
-      {id:'away2',team_id:'away',player_id:null,display_name_snapshot:'Xogador visitante 2',number:2,starter:true,initial_goalkeeper:false,position:'Defender'},
-    ])
+    if(url.pathname.endsWith('/analysis_participants')){
+      if(request.method()==='POST'){
+        const input=request.postDataJSON();writes.push(input)
+        participants.get(input.analysis_id).push({id:'new-player',...input})
+        aggregateActivity.set(input.analysis_id,new Date().toISOString())
+        return reply(route,null,201)
+      }
+      return reply(route,participants.get(ownerId(url)))
+    }
     if(url.pathname.endsWith('/team_players')||url.pathname.endsWith('/matches'))return reply(route,[])
     if(url.pathname.endsWith('/analysis_videos'))return reply(route,ownerId(url)==='draft'?[]:[
       {id:'direct',url:`${origin}/fixture.webm`,provider:null,title:'Cámara principal',duration_seconds:60,sort_order:0},
@@ -102,6 +116,7 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
       const row=fact(`event-${writes.length}`,input.p_analysis_id,input.p_event_type,{raw_x:input.p_x,raw_y:input.p_y,
         kickout_length:input.p_detail.length,kickout_result:input.p_detail.result,second_in_period:input.p_second_in_period})
       events.get(input.p_analysis_id).push(row)
+      aggregateActivity.set(input.p_analysis_id,new Date().toISOString())
       return reply(route,row.event_id)
     }
     throw new Error(`Unexpected fixture request: ${request.method()} ${url.pathname}`)
@@ -122,7 +137,8 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
   const idle=()=>page.waitForFunction(()=>{const button=document.querySelector('.tagging-save-button');return button&&!button.disabled})
   await page.goto(origin+'/app')
   await t.test('dashboard lists owned draft/in-progress separately from completed, with real counts',async()=>{
-    const ongoing=page.getByRole('region',{name:'En curso',exact:true}),completed=page.getByRole('region',{name:'Completados',exact:true})
+    const ongoing=page.getByRole('region',{name:'En curso',exact:true}),completed=page.getByRole('region',{name:'Completadas',exact:true})
+    await page.getByRole('heading',{name:'As túas análises',exact:true}).waitFor()
     await ongoing.getByText('Borrador sen eventos').waitFor()
     assert.equal(await ongoing.locator('li').count(),2);assert.equal(await completed.locator('li').count(),1)
     await ongoing.getByText('1 evento · Vídeo configurado').waitFor()
@@ -133,8 +149,22 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
     assert.equal(new URL(page.url()).pathname,'/app/analyses/draft')
     await page.getByRole('link',{name:'← Inicio',exact:true}).click()
   })
+  await t.test('a roster-only write updates the dashboard timestamp and moves the analysis ahead of older event activity',async()=>{
+    await page.locator('a[href="/app/analyses/draft?step=roster"]').click()
+    await page.getByLabel('Nome ou etiqueta',{exact:true}).fill('Novo xogador')
+    await page.getByRole('button',{name:'Engadir temporal',exact:true}).click()
+    await page.getByText('Novo xogador',{exact:true}).waitFor()
+    await page.getByText('Gardado',{exact:true}).waitFor()
+    await page.getByRole('link',{name:'← Inicio',exact:true}).click()
+    const first=page.getByRole('region',{name:'En curso',exact:true}).locator('li').first()
+    await first.getByText('Borrador sen eventos',{exact:false}).waitFor()
+    assert.equal(await first.locator('time').getAttribute('datetime'),aggregateActivity.get('draft'))
+    assert.equal(await first.locator('time').textContent(),'Hai un intre')
+    assert.equal(events.get('draft').length,0)
+    await screenshot('dashboard-dark')
+  })
   await t.test('continue opens the correct analysis and translations hide known internal position enums',async()=>{
-    await page.getByRole('region',{name:'En curso',exact:true}).getByRole('link',{name:/Continuar/}).first().click();await idle()
+    await page.getByRole('region',{name:'En curso',exact:true}).locator('li').filter({hasText:'Fixture de revisión UX'}).getByRole('link',{name:/Continuar/}).click();await idle()
     assert.equal(new URL(page.url()).pathname,'/app/analyses/ongoing')
     assert.equal(new URL(page.url()).searchParams.get('step'),'tagging')
     await page.getByRole('button',{name:'Convocatoria',exact:true}).click()
@@ -143,6 +173,11 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
     await page.getByRole('button',{name:'Vídeo e sincronización',exact:true}).click()
     await page.getByText(/Indica en que instante do vídeo comeza este período/).waitFor()
     await page.getByRole('button',{name:'Tagging',exact:true}).click();await idle()
+    await page.getByRole('button',{name:'Perda',exact:true}).click()
+    await page.getByLabel(/^Causa da perda/).selectOption({label:'Balón fóra'})
+    assert.equal(await page.getByLabel(/^Causa da perda/).inputValue(),'out_of_play')
+    assert.equal(await page.getByRole('option',{name:'Fóra de xogo',exact:true}).count(),0)
+    await page.getByRole('button',{name:'Tiro',exact:true}).click()
   })
   await t.test('all thirteen grouped actions stay visible with keyboard focus; kickout only requests destination',async()=>{
     const controls=page.getByRole('group',{name:'Tipo de evento',exact:true})
@@ -198,6 +233,7 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
   await t.test('completion requires confirmation; Escape cancels without a write and restores focus',async()=>{
     const before=writes.length,button=page.getByRole('button',{name:'Finalizar análise',exact:true})
     await button.click();await page.getByRole('dialog').waitFor()
+    await page.getByRole('heading',{name:'Finalizar esta análise?',exact:true}).waitFor()
     await page.keyboard.press('Escape');await page.getByRole('dialog').waitFor({state:'hidden'})
     assert.equal(writes.length,before)
     assert.equal(await button.evaluate(node=>node===document.activeElement),true)
@@ -223,6 +259,7 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
     await page.getByRole('dialog').waitFor({state:'hidden'})
     await page.getByText('Gardado',{exact:true}).waitFor()
     await page.getByRole('button',{name:'Reabrir análise',exact:true}).waitFor()
+    assert.match(await page.locator('.completed-summary').textContent(),/Análise finalizada.*Reábrea/)
     assert.equal(await page.locator('.tagging-save-button').count(),0)
     assert.equal(await page.getByRole('button',{name:'Editar',exact:true}).first().isDisabled(),true)
     assert.equal(await page.getByRole('button',{name:'Quitar',exact:true}).first().isDisabled(),true)
@@ -232,7 +269,7 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
   })
   await t.test('return Home shows the completed analysis; revisiting and reopening restores capture',async()=>{
     await page.getByRole('link',{name:'← Inicio',exact:true}).click()
-    const completed=page.getByRole('region',{name:'Completados',exact:true})
+    const completed=page.getByRole('region',{name:'Completadas',exact:true})
     await completed.getByText('Fixture de revisión UX').waitFor();assert.equal(await completed.locator('li').count(),2)
     await completed.getByRole('link',{name:/Revisar/}).first().click()
     await page.getByRole('button',{name:'Reabrir análise',exact:true}).click();await idle()
@@ -242,10 +279,11 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
   await t.test('empty dashboard is functional and landing contains no invented metrics or feature-card grid',async()=>{
     empty=true;await page.goto(origin+'/app')
     await page.getByRole('heading',{name:'Aínda non tes análises.'}).waitFor()
-    assert.equal(await page.getByRole('link',{name:'Novo análise',exact:true}).count(),2)
+    assert.equal(await page.getByRole('link',{name:'Nova análise',exact:true}).count(),2)
     assert.equal(await page.locator('.dashboard-card').count(),0)
     await page.goto(origin+'/')
     await page.getByRole('heading',{name:'O partido, xogada a xogada.'}).waitFor()
+    await page.getByRole('link',{name:'Comezar unha análise',exact:true}).waitFor()
     assert.equal(await page.locator('.metric-card,.capability-card').count(),0)
     assert.equal(await page.getByText(/46%|72%|0,81/).count(),0)
     await screenshot('landing-dark')

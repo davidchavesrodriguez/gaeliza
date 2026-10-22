@@ -114,6 +114,7 @@ test('timeline summaries include typed details and known historical replacements
   assert.equal(getEventResultLabel({ eventType: 'duel', duelType: 'aerial' }), 'Aéreo')
   assert.equal(getEventResultLabel({ eventType: 'dribble', dribbleResult: 'successful' }), 'Completado')
   assert.equal(getEventResultLabel({ eventType: 'restart', restartType: 'sideline' }), 'Banda')
+  assert.equal(getEventResultLabel({ eventType: 'turnover', turnoverCause: 'out_of_play' }), 'Balón fóra')
   assert.equal(getEventResultLabel({ eventType: 'substitution', participants: [{ role: 'player_out', number: 8 }, { role: 'player_in', number: 12 }] }), '#8 → #12')
   assert.equal(getEventResultLabel({ eventType: 'goalkeeper_change', participants: [{ role: 'goalkeeper_out', number: 1 }] }), '#1 → Sen identificar')
 })

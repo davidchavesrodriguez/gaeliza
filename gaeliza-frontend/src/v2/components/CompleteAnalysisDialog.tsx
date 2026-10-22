@@ -11,8 +11,8 @@ export function CompleteAnalysisDialog({ busy, onCancel, onConfirm, error }: {
   }, [])
   return <dialog ref={dialog} className="confirmation-dialog" aria-labelledby="complete-title"
     aria-describedby="complete-description" onCancel={(event) => { event.preventDefault(); if (!busy) onCancel() }}>
-    <h2 id="complete-title">Finalizar este análise?</h2>
-    <p id="complete-description">O análise quedará en só lectura. Os datos non se eliminan e poderás reabrilo para facer correccións. Rexistra os eventos pendentes antes de finalizar.</p>
+    <h2 id="complete-title">Finalizar esta análise?</h2>
+    <p id="complete-description">A análise quedará en só lectura. Os datos non se eliminan e poderás reabrila para facer correccións. Rexistra os eventos pendentes antes de finalizar.</p>
     {error ? <p className="form-error" role="alert">{error}</p> : null}
     <div className="dialog-actions">
       <button className="button button-secondary" type="button" autoFocus disabled={busy} onClick={onCancel}>Seguir analizando</button>

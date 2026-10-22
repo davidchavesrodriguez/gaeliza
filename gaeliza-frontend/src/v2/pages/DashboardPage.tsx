@@ -62,15 +62,15 @@ export function DashboardPage() {
   }
   const groups = groupAnalyses(items)
   return <div className="page-stack dashboard-page">
-    <section className="page-heading"><div><h1>Os teus análises</h1><p>Continúa un partido ou revisa os que xa completaches.</p></div>
-      <Link className="button button-primary" to="/app/new">Novo análise</Link></section>
+    <section className="page-heading"><div><h1>As túas análises</h1><p>Continúa unha análise ou revisa as que xa completaches.</p></div>
+      <Link className="button button-primary" to="/app/new">Nova análise</Link></section>
     {isAnonymous ? <p className="guest-banner">Sesión de invitado: para retomar o traballo, volve desde este mesmo navegador.</p> : null}
     {error ? <div className="form-error" role="alert"><span>{error}</span>
       <button className="button button-secondary" type="button" disabled={loading} onClick={() => { if (items.length) void loadMore(); else setRetry((value) => value + 1) }}>Reintentar</button></div> : null}
     {loading ? <p role="status">Cargando análises…</p> : null}
-    {!loading && !error && items.length === 0 ? <section className="empty-state"><h2>Aínda non tes análises.</h2><p>Escolle «Novo análise» para preparar un partido e a súa convocatoria.</p></section> : null}
-    {items.length > 0 ? <><AnalysisList title="En curso" items={groups.ongoing} /><AnalysisList title="Completados" items={groups.completed} /></> : null}
-    {hasMore ? <p className="form-hint">Mostrando {items.length} análises cargados. Carga máis para ver o resto.</p> : null}
+    {!loading && !error && items.length === 0 ? <section className="empty-state"><h2>Aínda non tes análises.</h2><p>Escolle «Nova análise» para preparar un partido e a súa convocatoria.</p></section> : null}
+    {items.length > 0 ? <><AnalysisList title="En curso" items={groups.ongoing} /><AnalysisList title="Completadas" items={groups.completed} /></> : null}
+    {hasMore ? <p className="form-hint">Mostrando {items.length} análises cargadas. Carga máis para ver as restantes.</p> : null}
     {hasMore && !error ? <button className="button button-secondary load-more" type="button" disabled={loading} onClick={() => { void loadMore() }}>Cargar máis análises</button> : null}
   </div>
 }

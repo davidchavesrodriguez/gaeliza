@@ -271,7 +271,7 @@ export function VideoSetupPanel({
         <div className="section-heading-inline">
           <div>
 
-            <h2>Fontes do análise</h2>
+            <h2>Fontes da análise</h2>
             <p>
               Podes usar un ou varios vídeos. En directo é opcional: engádeo máis
               tarde se queres enriquecer o tagging desde gravación.
@@ -312,7 +312,7 @@ export function VideoSetupPanel({
           <div className="empty-state compact-empty-state">
             <strong>Aínda non hai vídeo.</strong>
             <p>
-              Podes continuar preparando o análise e engadilo cando dispoñas da
+              Podes continuar preparando a análise e engadir o vídeo cando dispoñas da
               gravación.
             </p>
           </div>
