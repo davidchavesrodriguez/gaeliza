@@ -7,14 +7,14 @@ const session=(id)=>({user:{id,is_anonymous:true},access_token:`token-${id}`,ref
 const response=(value=null,error=null)=>({data:{session:value},error})
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return {promise,resolve,reject}}
 function fixture(t,read=async()=>response(session('existing'))){
-  const states=[],callbacks=[],subscriptions=new Set(),calls={reads:0,guests:0,registrations:0}
+  const states=[],callbacks=[],subscriptions=new Set(),calls={reads:0,guests:0,registrations:0,unsubscriptions:0}
   const auth={
     getSession:()=>{calls.reads++;return read()},
     signInAnonymously:async()=>{calls.guests++;return response(session('guest'))},
     onAuthStateChange:(callback)=>{
       assert.equal(states.at(-1).status,'ready','initial React state is set before registration')
       calls.registrations++;callbacks.push(callback);subscriptions.add(callback)
-      return {data:{subscription:{unsubscribe:()=>subscriptions.delete(callback)}}}
+      return {data:{subscription:{unsubscribe:()=>{calls.unsubscriptions++;subscriptions.delete(callback)}}}}
     },
   }
   const start=createAuthBootstrap(auth),stops=[]
@@ -45,7 +45,8 @@ test('slow recovery survives mount/unmount/mount without parallel recovery or st
   assert.equal(f.calls.reads,1);assert.equal(f.calls.registrations,0)
   held.resolve(response(session('persisted')));await flush()
   assert.deepEqual(f.states.map(s=>s.status),['loading','loading','ready'])
-  assert.equal(f.calls.registrations,1);stopSecond();assert.equal(f.subscriptions.size,0)
+  assert.equal(f.calls.registrations,1);stopSecond();stopSecond();assert.equal(f.subscriptions.size,0)
+  assert.equal(f.calls.unsubscriptions,1,'retry plus effect cleanup must unsubscribe only once')
   const count=f.states.length;f.callbacks[0]('TOKEN_REFRESHED',session('late'));t.mock.timers.tick(authBootstrapTimeoutMs*2)
   assert.equal(f.states.length,count)
 })

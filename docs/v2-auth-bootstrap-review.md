@@ -37,7 +37,8 @@ está confirmado y se elimina; la defensa de timeout es adicional.
 Un solo getSession en vuelo se comparte entre el replay de StrictMode, remounts
 y retry mientras siga pendiente. Cada intento tiene su propia vigencia y timer;
 un intento desmontado o agotado no puede publicar estado ni registrar listeners.
-El cleanup desuscribe el listener de ese intento y elimina su timer. El provider
+El cleanup es idempotente: retry y el cleanup del efecto desuscriben una sola vez
+el listener de ese intento y eliminan su timer. El provider
 protege también las resoluciones asíncronas de guest/signOut por generación.
 
 La aplicación conserva la instancia singleton existente de Supabase. No crea
@@ -70,9 +71,10 @@ autoRefreshToken y detectSessionInUrl permanecen intactas.
   recuperación lenta, returned error/rechazo, timeout, late results, retry antes
   y después de resolver, cambios posteriores y cleanup. Timers simulados, sin
   esperas de 15 segundos ni mocks de internals privados del SDK.
-- Ocho escenarios de navegador nuevos con AuthProvider, RequireSession, router
+- Nueve escenarios de navegador nuevos con AuthProvider, RequireSession, router
   y Dashboard reales bajo StrictMode. Incluyen error/timeout/retry, remounts,
-  eventos posteriores y persistencia de identidad al recargar.
+  eventos posteriores, retry de creación de invitado fallida y persistencia de
+  identidad al recargar.
 - El caso de integración usa el SDK real con una sesión anonymous expirada en
   storage y un endpoint Auth **local**: retiene el refresh, responde HTTP 200 con
   token renovado para el mismo usuario y verifica entrada inmediata al Dashboard.
@@ -83,8 +85,8 @@ autoRefreshToken y detectSessionInUrl permanecen intactas.
   una propiedad de su fixture AuthContext para reflejar el contrato de retry.
 
 Validación final local: `npm ci`, `npm audit --audit-level=high` (0
-vulnerabilidades), lint, build y **127/127** pruebas Node. Browser: **46 escenarios,
-49/49 resultados** incluyendo sus tres tests padre. Persiste el warning conocido
+vulnerabilidades), lint, build y **127/127** pruebas Node. Browser: **47 escenarios,
+50/50 resultados** incluyendo sus tres tests padre. Persiste el warning conocido
 del bundle >500 kB (~611 kB), sin cambiar límites. PostgreSQL no se ejecuta:
 ningún schema, migration, payload deportivo ni acceso a DB cambia.
 

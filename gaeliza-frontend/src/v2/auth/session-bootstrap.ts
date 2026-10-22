@@ -49,6 +49,7 @@ export function createAuthBootstrap(auth: Pick<AuthClient, 'getSession' | 'onAut
     })()
 
     return () => {
+      if (!active) return
       active = false
       clearTimeout(timeout)
       unsubscribe?.()

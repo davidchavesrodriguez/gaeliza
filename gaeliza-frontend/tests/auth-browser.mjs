@@ -23,12 +23,12 @@ const source=`
   import '/src/v2/styles/global.css'
   const existing=${JSON.stringify(sessionFor())}
   let mode=window.authFixtureMode||'existing'
-  let current=JSON.parse(localStorage.getItem('auth-fixture-session')||'null')||(mode==='none'?null:existing)
+  let current=JSON.parse(localStorage.getItem('auth-fixture-session')||'null')||(['none','guest-error'].includes(mode)?null:existing)
   const callbacks=new Set(),saved=[]
   let resolveInitial
   const pending=new Promise(resolve=>{resolveInitial=resolve})
   const reply=(session,error=null)=>({data:{session},error})
-  const metrics={reads:0,guests:0,registrations:0,active:0}
+  const metrics={reads:0,guests:0,registrations:0,unsubscriptions:0,active:0}
   const emit=(event,session)=>{current=session;for(const callback of callbacks)callback(event,session)}
   window.authControl={metrics,
     resolve:()=>{mode='existing';current=existing;localStorage.setItem('auth-fixture-session',JSON.stringify(current));resolveInitial(reply(current))},
@@ -46,6 +46,7 @@ const source=`
     }
     supabase.auth.signInAnonymously=async()=>{
       metrics.guests++
+      if(mode==='guest-error')return reply(null,new Error('Fixture guest creation failed'))
       const guest={...existing,user:{...existing.user,id:'00000000-0000-0000-0000-000000000002'}}
       localStorage.setItem('auth-fixture-session',JSON.stringify(guest));emit('SIGNED_IN',guest)
       return reply(guest)
@@ -53,7 +54,7 @@ const source=`
     supabase.auth.onAuthStateChange=callback=>{
       metrics.registrations++;callbacks.add(callback);saved.push(callback);metrics.active=callbacks.size
       callback('INITIAL_SESSION',null)
-      return {data:{subscription:{unsubscribe:()=>{callbacks.delete(callback);metrics.active=callbacks.size}}}}
+      return {data:{subscription:{unsubscribe:()=>{metrics.unsubscriptions++;callbacks.delete(callback);metrics.active=callbacks.size}}}}
     }
   }else{
     const listen=supabase.auth.onAuthStateChange.bind(supabase.auth)
@@ -140,6 +141,14 @@ test('auth/app recovery under React StrictMode, without remote Supabase',async(t
     assert.equal(await page.locator('#auth-probe').count(),0)
     await page.locator('#toggle-provider').click();await ready(page)
     assert.equal((await metrics()).active,1);assert.equal((await metrics()).registrations,2)
+  })
+  await t.test('retry after guest creation fails cleans the ready listener once and recovers an available identity',async(t)=>{
+    const {page,metrics}=await scene(t,'guest-error');await page.goto(origin+'/app')
+    await page.getByRole('heading',{name:'Non foi posible iniciar a sesión de invitado.',exact:true}).waitFor()
+    assert.equal((await metrics()).guests,1);assert.equal((await metrics()).active,1)
+    await page.evaluate(()=>window.authControl.recover());await page.getByRole('button',{name:'Tentar de novo'}).click();await ready(page)
+    assert.equal((await metrics()).guests,1);assert.equal((await metrics()).active,1)
+    assert.equal((await metrics()).registrations,2);assert.equal((await metrics()).unsubscriptions,1)
   })
   for(const mode of ['error','throw'])await t.test(`${mode} leaves loading and retry recovers without replacing a saved session`,async(t)=>{
     const {page,metrics}=await scene(t,mode);await page.goto(origin+'/app');await failed(page)
