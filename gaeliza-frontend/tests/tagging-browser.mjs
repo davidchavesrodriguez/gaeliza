@@ -1,14 +1,8 @@
 // Optional browser regressions, using external Playwright. No real Supabase calls.
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
-import { mkdir, writeFile, readFile, rm } from 'node:fs/promises'
-import { spawn } from 'node:child_process'
-import { once } from 'node:events'
-import { setTimeout as delay } from 'node:timers/promises'
+import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-const { chromium } = createRequire(import.meta.url)('playwright')
-const root = new URL('../', import.meta.url)
-const harness = new URL('node_modules/.tagging-smoke/', root)
+import { startBrowserHarness } from './helpers/browser-harness.mjs'
 const port = process.env.TAGGING_SMOKE_PORT ?? '5187'
 const origin = `http://127.0.0.1:${port}`
 const workspace = {
@@ -34,13 +28,14 @@ const fact = (id, time) => ({
   kickout_length: null, kickout_result: null,
 })
 test('tagging browser regressions', async (t) => {
-  await mkdir(harness, { recursive: true })
-  await writeFile(new URL('index.html', harness), '<div id="root"></div><script type="module" src="./harness.tsx"></script>')
-  await writeFile(new URL('harness.tsx', harness), `
+  const { browser } = await startBrowserHarness(t, { name: 'tagging', port, source: `
     import React, {useState} from 'react'
     import {createRoot} from 'react-dom/client'
     import {TaggingPanel} from '/src/v2/components/TaggingPanel'
     import '/src/v2/styles/global.css'
+    import '/src/v2/styles/analysis-setup.css'
+    import '/src/v2/styles/analysis-workspace.css'
+    import '/src/v2/styles/video-sync.css'
     import '/src/v2/styles/tagging.css'
     function Harness() {
       const [workspace, setWorkspace] = useState(${JSON.stringify(workspace)})
@@ -53,25 +48,7 @@ test('tagging browser regressions', async (t) => {
         }} /></>
     }
     createRoot(document.getElementById('root')).render(<Harness />)
-  `)
-  const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', port, '--strictPort'], {
-    cwd: root, env: { ...process.env, VITE_SUPABASE_URL: origin, VITE_SUPABASE_ANON_KEY: 'browser-fixture-public-key' }, stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  let output = ''
-  server.stdout.on('data', (chunk) => { output += chunk })
-  server.stderr.on('data', (chunk) => { output += chunk })
-  let browser
-  t.after(async () => {
-    if (browser) await browser.close()
-    if (server.exitCode === null) { const ended = once(server, 'exit'); server.kill('SIGTERM'); await ended }
-    await rm(harness, { recursive: true, force: true })
-  })
-  for (let attempt = 0; ; attempt++) {
-    try { if ((await fetch(origin)).ok) break } catch { /* starting */ }
-    if (attempt > 100 || server.exitCode !== null) throw new Error(output)
-    await delay(50)
-  }
-  browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined, args: ['--no-sandbox'] })
+  ` })
   const page = await browser.newPage()
   page.setDefaultTimeout(5000)
   const errors = []
@@ -166,7 +143,7 @@ test('tagging browser regressions', async (t) => {
   })
   await page.goto(`${origin}/node_modules/.tagging-smoke/index.html`)
   const save = page.getByRole('button', { name: /^(Gardar |Gardando)/ })
-  const idle = () => page.waitForFunction(() => !document.querySelector('.tagging-save-button').disabled)
+  const idle = () => page.waitForFunction(() => document.querySelector('.tagging-save-button') && !document.querySelector('.tagging-save-button').disabled)
   await save.waitFor(); await idle()
   await t.test('timeline is chronological', async () => {
     assert.deepEqual(await page.locator('.timeline-event-time strong').allTextContents(), ['0:00', '0:20'])
@@ -234,7 +211,7 @@ test('tagging browser regressions', async (t) => {
     assert.deepEqual(writes.at(-1).p_detail, { result: 'completed', technique: 'foot', end_x: 0, end_y: 0 })
     assert.equal(writes.at(-1).p_x, 0); assert.equal(writes.at(-1).p_y, 0)
     assert.deepEqual(writes.at(-1).p_participants.map((p) => p.role), ['passer', 'receiver'])
-    await page.getByText('completed · foot', { exact: false }).first().waitFor()
+    await page.getByText('Completado · Pé', { exact: false }).first().waitFor()
   })
   await t.test('pass result and team changes clean receiver/interceptor state; each pass is one event', async () => {
     await page.getByLabel(/^Pasador/).selectOption('home1')
@@ -361,7 +338,13 @@ test('tagging browser regressions', async (t) => {
   })
   await t.test('all synchronized videos are accessible; YouTube seeks and generic links degrade explicitly',async()=>{
     const row=page.locator('.timeline-event').first()
-    const youtube=row.getByRole('link',{name:/YouTube/});assert.match(await youtube.getAttribute('href'),/t=10/)
+    const youtube=row.getByRole('button',{name:/Ir ao vídeo: YouTube/})
+    await youtube.click()
+    const embed=page.locator('.youtube-player')
+    assert.match(await embed.getAttribute('src'),/youtube-nocookie.com\/embed\/dQw4w9WgXcQ\?start=10/)
+    assert.match(await embed.getAttribute('src'),/autoplay=0/)
+    await page.getByRole('button',{name:'Ocultar vídeo'}).click()
+    assert.equal(await embed.count(),0)
     const generic=row.getByRole('link',{name:/Abrir orixinal: External/})
     assert.equal(await generic.getAttribute('href'),'https://example.test/watch?token=keep')
     assert.match(await generic.textContent(),/salto exacto non dispoñible/)
@@ -401,12 +384,12 @@ test('tagging browser regressions', async (t) => {
   })
   await t.test('completed blocks capture, deletion and inference until reopening', async () => {
     await page.getByRole('button', { name: 'Complete fixture' }).click()
-    assert.equal(await save.isDisabled(), true)
+    assert.equal(await save.count(), 0)
     assert.equal(await page.getByRole('button',{name:'Editar',exact:true}).first().isDisabled(),true)
     await page.getByRole('button',{name:/Ir ao vídeo: Direct/}).first().click()
     await page.waitForFunction(()=>document.querySelector('video')?.readyState>=1)
-    assert.equal(await page.getByRole('link',{name:/YouTube/}).first().isEnabled(),true)
-    for (const label of ['Pase', 'Duelo', 'Regate', 'Reinicio', 'Substitución', 'Cambio de porteiro']) assert.equal(await page.getByRole('button', { name: label, exact: true }).isDisabled(), true)
+    assert.equal(await page.getByRole('button',{name:/Ir ao vídeo: YouTube/}).first().isEnabled(),true)
+    for (const label of ['Pase', 'Duelo', 'Regate', 'Reinicio', 'Substitución', 'Cambio de porteiro']) assert.equal(await page.getByRole('button', { name: label, exact: true }).count(), 0)
     assert.equal(await page.getByRole('button', { name: 'Inferir posesións' }).isDisabled(), true)
     assert.equal(await page.getByRole('button', { name: 'Quitar', exact: true }).first().isDisabled(), true)
     await page.getByRole('button', { name: 'Reabrir análise' }).click(); await idle()
