@@ -18,6 +18,7 @@ type RawEventFact = {
   recovery_method: string | null
   turnover_cause: string | null
   foul_outcome: string | null
+  related_foul_event_id: string | null
   card_type: string | null
   kickout_length: string | null
   kickout_result: string | null
@@ -48,6 +49,7 @@ function mapEvent(event: RawEventFact): AnalysisEventSummary {
     turnoverCause: event.turnover_cause,
     foulOutcome: event.foul_outcome,
     cardType: event.card_type,
+    relatedFoulEventId: event.related_foul_event_id ?? null,
     kickoutLength: event.kickout_length,
     kickoutResult: event.kickout_result,
     passResult: event.pass_result ?? null,
@@ -83,7 +85,7 @@ export async function listAnalysisEvents(
     let query = supabase
       .from('analysis_event_facts')
       .select(
-        'event_id, event_type, team_id, period_id, period_number, second_in_period, raw_x, raw_y, score_value, shot_result, recovery_method, turnover_cause, foul_outcome, card_type, kickout_length, kickout_result, pass_result, pass_technique, duel_type, dribble_result, restart_type',
+        'event_id, event_type, team_id, period_id, period_number, second_in_period, raw_x, raw_y, score_value, shot_result, recovery_method, turnover_cause, foul_outcome, card_type, related_foul_event_id, kickout_length, kickout_result, pass_result, pass_technique, duel_type, dribble_result, restart_type',
       )
       .eq('analysis_id', analysisId)
       .order('period_sort_order', { ascending: true })
@@ -112,7 +114,7 @@ type RawParticipantRole = {
 }
 
 async function loadReplacementParticipants(analysisId: string, events: AnalysisEventSummary[], signal?: AbortSignal) {
-  const replacements = events.filter((event) => event.eventType === 'substitution' || event.eventType === 'goalkeeper_change')
+  const replacements = events.filter((event) => event.eventType === 'card' || event.eventType === 'substitution' || event.eventType === 'goalkeeper_change')
   // Keep PostgREST URLs bounded (100 UUIDs per request), also on dense timelines.
   for (let offset = 0; offset < replacements.length; offset += 100) {
     const batch = replacements.slice(offset, offset + 100)
@@ -136,6 +138,7 @@ async function loadReplacementParticipants(analysisId: string, events: AnalysisE
 }
 
 export async function logQuickEvent(input: LogQuickEventInput): Promise<string> {
+  if (input.eventType === 'foul') return (await logFoulWithOptionalCard(input)).foul_event_id
   const { data, error } = await supabase.rpc('log_event', {
     p_analysis_id: input.analysisId,
     p_period_id: input.periodId,
@@ -203,4 +206,20 @@ export async function reopenAnalysis(analysisId: string): Promise<void> {
       error.code,
     )
   }
+}
+
+export async function logFoulWithOptionalCard(input: LogQuickEventInput): Promise<{ foul_event_id: string; card_event_id: string | null }> {
+  if (input.eventType !== 'foul') throw new Error('Expected a foul capture.')
+  const { data, error } = await supabase.rpc('log_foul_with_optional_card', {
+    p_analysis_id: input.analysisId, p_period_id: input.periodId, p_team_id: input.teamId,
+    p_second_in_period: input.secondInPeriod, p_x: input.x, p_y: input.y,
+    p_detail: input.detail,
+    p_participants: input.participants.map((p) => ({ participant_id: p.participantId, role: p.role })),
+    p_card_type: input.foulDiscipline?.cardType ?? null,
+    p_card_recipient_id: input.foulDiscipline?.recipientId ?? null,
+  })
+  if (error) throw taggingError(`Could not log foul: ${error.message}`, error.code)
+  if (!data || typeof data.foul_event_id !== 'string' ||
+      (data.card_event_id !== null && typeof data.card_event_id !== 'string')) throw new Error('Invalid foul RPC response.')
+  return data
 }

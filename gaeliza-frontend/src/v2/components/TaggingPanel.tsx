@@ -63,7 +63,7 @@ export function TaggingPanel({ workspace, onBack, onWorkspaceChanged, lifecycleM
           })} /> : <QuickEventForm workspace={workspace} captureDisabled={captureDisabled} busy={busy}
           onSave={(input) => runTaggingMutation(async () => {
             await logQuickEvent(input)
-            return `${quickEventLabels[input.eventType]} gardado.`
+            return input.foulDiscipline ? 'Falta e tarxeta gardadas.' : `Evento gardado: ${quickEventLabels[input.eventType]}.`
           })} />)
   return (
     <div className="tagging-stack">
