@@ -175,3 +175,16 @@ Validación repetida de la corrección:
   Node: 106/106. Browser: 27 escenarios / 28 resultados, todos verdes.
 - Sin cambios frontend, dependencias, configuración CI ni Supabase remoto. Sigue
   únicamente el warning conocido del bundle >500 kB.
+
+Las suites `event-editing.sql` y `event-child-versioning.sql` comparten ahora
+`supabase/tests/fixtures/editing.sql` mediante `\ir`, para evitar duplicar la
+preparación de esta regresión. Se ejecutan con `psql -f` (no como stdin aislado),
+conservando el subdirectorio fixtures junto a los scripts:
+
+```sh
+psql "$LOCAL_DB" -v ON_ERROR_STOP=1 -f supabase/tests/event-child-versioning.sql
+```
+
+Las cuatro suites se han vuelto a ejecutar desde cero con ese layout, manteniendo
+las 251 aserciones. No se modifica la configuración de SonarCloud ni su umbral de
+duplicación; se comparte el código repetido de las pruebas.
