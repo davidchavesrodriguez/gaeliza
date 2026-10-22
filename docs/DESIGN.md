@@ -72,6 +72,23 @@ Dashboard como listas de análisis, no grid de tarjetas. Preparación como secci
 y filas de convocatoria; formularios identificables sin cajas anidadas. Los nombres
 históricos de clases que contienen `card` no justifican dibujar una card.
 
+## Contexto del partido y shell del workspace
+
+En tagging, equipos y marcador analítico forman un único encabezado: nombres
+junto al score gaélico, cifras tabulares neutras y puntos totales secundarios.
+No repetir encima otro título visual equivalente del encuentro. El score usa
+solo los eventos ya leídos; durante una lectura inicial no confirmada, no mostrar
+un cero como si fuera un resultado conocido. Convocatoria y vídeo conservan una
+cabecera de partido compacta sin scoreboard innecesario.
+
+Las tres etapas son navegación secundaria, con selección visible y URL recuperable.
+Lifecycle queda visible junto a esa navegación; Finalizar/Reabrir no compiten con
+la acción principal de la tarea. Completed indica lectura y reapertura en texto
+compacto, sin ocultar sus restricciones. Guardado ocupa una zona auxiliar estable;
+los errores pueden ampliar la cabecera. No usar alturas fijas para encajar nombres,
+traducciones o zoom. En móvil, equipos pueden envolver y score pasar a otra fila;
+el shell global queda en flujo, sin apilar cabeceras sticky.
+
 ## Buttons e inputs
 
 Acción primaria sólida de acento, secundaria neutra con borde, acción textual
