@@ -34,7 +34,6 @@ export function TaggingScoreboard({ workspace, events }: { workspace: AnalysisWo
           <small>{homeScore.total} pts</small>
         </div>
         <div className="tagging-score-center">
-          <span className="eyebrow">Marcador analítico</span>
           <strong>{events.length} {events.length === 1 ? 'evento' : 'eventos'}</strong>
         </div>
         <div className="tagging-score-team tagging-score-away">
