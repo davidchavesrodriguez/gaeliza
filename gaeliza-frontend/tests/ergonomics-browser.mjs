@@ -93,13 +93,12 @@ test('foul discipline and capture ergonomics',async(t)=>{
   assert.equal(await page.locator('.timeline-event').count(),8)
   assert.match(await page.getByRole('region',{name:'Contexto do partido',exact:true}).innerText(),/16 eventos/)
  })
- await t.test('desktop controls and video stay below header; pitch enlarged; video hide frees width',async()=>{
+ await t.test('desktop controls remain in flow; pitch enlarged; video hide frees width',async()=>{
   assert.equal(await page.locator('.event-type-button').count(),13)
   const withVideo=await capture().boundingBox()
   assert.ok((await page.locator('.tagging-pitch').boundingBox()).width>240)
-  await page.evaluate(()=>window.scrollTo(0,400))
-  assert.ok((await page.locator('.event-type-controls').boundingBox()).y>=63)
-  assert.ok((await page.locator('.tagging-video-panel').boundingBox()).y>=79)
+  assert.equal(await page.locator('.event-type-controls').evaluate(e=>getComputedStyle(e).position),'static')
+  assert.equal(await page.locator('.tagging-video-panel').evaluate(e=>getComputedStyle(e).position),'static')
   await page.evaluate(()=>window.scrollTo(0,0));await page.locator('video').evaluate(v=>{v.currentTime=0.1});await page.waitForFunction(()=>document.querySelector('video').readyState>=2);await snapshot('desktop-video')
   await page.getByRole('button',{name:'Ocultar vídeo'}).click()
   assert.ok((await capture().boundingBox()).width>withVideo.width)

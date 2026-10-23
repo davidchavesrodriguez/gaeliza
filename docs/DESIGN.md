@@ -145,10 +145,28 @@ destino opcional, incluido 0/0. Al editar un saque con origen anterior, la nueva
 escritura lo deja en null/null; decisión confirmada por el usuario (datos de prueba).
 No se realiza una limpieza masiva de registros ni cambia el schema.
 
-Desktop: controles/formulario ocupan la mayor parte, vídeo secundario colapsable;
-al ocultarlo se recupera el ancho. Timeline como lista de filas compactas posterior
-al trabajo activo. En móvil, apilar, sin dos columnas estrechas. Estado de visibilidad
-solo en memoria, sin almacenamiento innecesario.
+El tiempo del evento ocupa una región estable antes de la acción: período y
+valor manual, sin reloj automático ni relación implícita con el tiempo del vídeo.
+Desktop muestra los trece botones agrupados; bajo 768 px, un select nativo con
+label «Acción» y los mismos grupos/opciones sustituye visualmente los botones.
+Cambiar tipo conserva exactamente los resets y defaults del formulario existente.
+
+Captura: equipo/resultado → protagonistas → enriquecimiento → posición cuando
+aplica. El campo es parte de esa jugada, con título específico y coordenadas
+numéricas secundarias: al lado en escritorio, debajo en anchos reducidos. Las
+posiciones opcionales de tarjetas/cambios quedan disponibles en un disclosure,
+sin reservar una columna vacía; un valor existente se presenta desplegado al editar.
+Vídeo secundario de 360–400 px en escritorio; ocultarlo devuelve espacio y desmonta
+el player. Bajo 1200 px pasa después de Guardar, en flujo. Sin nuevos sticky ni
+preferencias persistidas de visibilidad. Usar columnas solo si los campos siguen
+siendo legibles; apilar campo antes de comprimir los datos en tablet estrecha.
+
+Timeline: gutter tabular de tiempo/período, acción, equipo/protagonista y resultado;
+vídeo/operaciones textuales secundarios, siempre accesibles. Filas sin altura fija;
+las fuentes múltiples y nombres largos envuelven. Mantener los ocho recientes,
+expansión explícita y orden canónico. Falta/tarjeta conservan dos filas: sangría más
+texto de relación, nunca borrado o edición compuestos. Edición activa se marca
+con texto además del acento; foco al editor y retorno a Editar al terminar.
 
 Reutilizar navegación y sync derivados. Directos: HTML5 controls, sin autoplay.
 YouTube: embed pequeño solo desde ID/host validado, sin API ni dependencia extra;

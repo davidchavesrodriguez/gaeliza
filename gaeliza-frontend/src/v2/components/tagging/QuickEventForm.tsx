@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import type { AnalysisWorkspace } from '../../domain/analysis'
 import { buildCaptureInput, changeCapture, defaultCapture, pruneRoles, withDestination, type CaptureDraft, type CaptureFormState } from '../../domain/event-capture'
 import { quickEventLabels, type FoulDiscipline, type LogQuickEventInput } from '../../domain/tagging'
 import { compatibleAdditionalParticipants, mergeEditingParticipants, type EventForEditing } from '../../domain/event-editing'
 import { AdditionalEventParticipants } from './AdditionalEventParticipants'
-import { PitchCoordinatePicker } from '../PitchCoordinatePicker'
+import { EventPositionFields } from './EventPositionFields'
+import { EventTimeControls } from './EventTimeControls'
 import { CommonEventFields } from './CommonEventFields'
 import { EventTypeControls } from './EventTypeControls'
 import { EventDetailFields } from './EventDetailFields'
@@ -14,11 +15,12 @@ type Props = {
   workspace: AnalysisWorkspace
   captureDisabled: boolean
   busy: boolean
+  videoToggle?: ReactNode
   initialEvent?: EventForEditing
   onCancel?: () => void
   onSave: (input: LogQuickEventInput) => Promise<boolean>
 }
-export function QuickEventForm({ workspace, captureDisabled, busy, onSave, initialEvent, onCancel }: Props) {
+export function QuickEventForm({ workspace, captureDisabled, busy, onSave, initialEvent, onCancel, videoToggle }: Props) {
   const [form, setForm] = useState<CaptureFormState>(() => initialEvent?.form ?? ({
     teamId: workspace.homeTeam.id, periodId: workspace.periods[0]?.id ?? '', clock: '0:00',
     x: null, y: null, capture: defaultCapture('shot'), roles: {},
@@ -29,6 +31,12 @@ export function QuickEventForm({ workspace, captureDisabled, busy, onSave, initi
   const [additional, setAdditional] = useState(initialEvent?.additionalParticipants ?? [])
   const [error, setError] = useState<string | null>(null)
   const submitting = useRef(false)
+  const heading = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    if (!initialEvent) return
+    heading.current?.focus({ preventScroll: true })
+    heading.current?.scrollIntoView({ block: 'nearest' })
+  }, [initialEvent])
 
   useEffect(() => {
     // Editing must reject stale snapshots rather than silently drop identities.
@@ -75,27 +83,34 @@ export function QuickEventForm({ workspace, captureDisabled, busy, onSave, initi
 
   const { capture } = form
   const saveLabel = initialEvent ? 'Gardar cambios' : `Gardar ${quickEventLabels[capture.eventType].toLowerCase()}`
+  function changeCommon(field: 'teamId' | 'periodId' | 'clock', value: string) {
+    setError(null)
+    const next = { ...form, [field]: value, roles: form.roles }
+    if (field === 'teamId') { setRecipient(null); next.roles = pruneRoles(form.capture, form.roles, value, workspace.participants) }
+    setAdditional((items) => compatibleAdditionalParticipants(items, next, workspace.participants))
+    setForm(next)
+  }
+  const hasPitchColumn = !['card', 'substitution', 'goalkeeper_change'].includes(capture.eventType)
   return <form className="state-card tagging-capture-card" onSubmit={handleSubmit}>
+    <div className="capture-temporal-toolbar"><EventTimeControls workspace={workspace} form={form} disabled={captureDisabled} onChange={changeCommon} /></div>
     {!initialEvent ? <EventTypeControls active={capture.eventType} disabled={captureDisabled}
       onSelect={(type) => { if (type !== capture.eventType) updateCapture(defaultCapture(type)) }} /> : null}
-    <div className="active-event-heading"><h3>{initialEvent ? 'Modificar evento' : quickEventLabels[capture.eventType]}</h3>
-      <p className="form-hint">Rexistra o que coñezas. O borrador queda gardado cando confirmas o evento.</p>
+    <div className="active-event-heading"><h3 ref={heading} tabIndex={initialEvent ? -1 : undefined}>{initialEvent ? `Modificar ${quickEventLabels[capture.eventType].toLowerCase()}` : quickEventLabels[capture.eventType]}</h3>
+      <p className="form-hint capture-save-hint">Confirma o evento para gardalo.</p>
       {initialEvent ? <p className="form-hint">Tipo: {quickEventLabels[capture.eventType]}. Para outro tipo físico, elimina e crea un evento novo.</p> : null}
     </div>
     {error ? <div className="form-error" role="alert">{error}</div> : null}
-    <div className="capture-fields-and-pitch"><div className="capture-fields">
-    <CommonEventFields workspace={workspace} form={form} disabled={captureDisabled} onChange={(field, value) => {
-      setError(null)
-      const next = { ...form, [field]: value, roles: form.roles }
-      if (field === 'teamId') { setRecipient(null) }
-      if (field === 'teamId') next.roles = pruneRoles(form.capture, form.roles, value, workspace.participants)
-      setAdditional((items) => compatibleAdditionalParticipants(items, next, workspace.participants))
-      setForm(next)
-    }} />
-    <EventDetailFields draft={capture} disabled={captureDisabled} onChange={updateCapture} />
+    <div className={`capture-fields-and-pitch${hasPitchColumn ? ` capture-with-position${capture.eventType === 'pass' ? ' capture-with-route' : ''}` : ''}`}><div className="capture-fields">
+    <div className="capture-essential-fields">
+      <CommonEventFields workspace={workspace} form={form} disabled={captureDisabled} onChange={changeCommon} />
+      <EventDetailFields draft={capture} disabled={captureDisabled} onChange={updateCapture} />
+    </div>
+    <fieldset className="capture-protagonists"><legend className="visually-hidden">Protagonistas</legend>
     <EventParticipantFields capture={capture} teamId={form.teamId} roles={form.roles} participants={workspace.participants}
       disabled={captureDisabled} onChange={(role, id) => setForm((current) => ({ ...current, roles: { ...current.roles, [role]: id } }))} />
-    {!initialEvent && capture.eventType === 'foul' ? <div className="tagging-participant-grid">
+    </fieldset>
+    <EventDetailFields draft={capture} section="enrichment" disabled={captureDisabled} onChange={updateCapture} />
+    {!initialEvent && capture.eventType === 'foul' ? <fieldset className="foul-discipline"><legend>Consecuencia disciplinaria (opcional)</legend><div className="tagging-participant-grid">
       <label><span>Sanción disciplinaria · opcional</span>
         <select value={cardType} disabled={captureDisabled} onChange={(e) => setCardType(e.target.value as typeof cardType)}>
           <option value="">Sen tarxeta</option><option value="yellow">Amarela</option>
@@ -108,26 +123,21 @@ export function QuickEventForm({ workspace, captureDisabled, busy, onSave, initi
         {workspace.participants.filter((p) => p.teamId === form.teamId).map((p) =>
           <option key={p.id} value={p.id}>{p.number !== null ? `#${p.number} · ` : ''}{p.displayName}</option>)}
       </select></label> : null}
-    </div> : null}
+    </div></fieldset> : null}
     {initialEvent ? <AdditionalEventParticipants capture={capture} teamId={form.teamId} roster={workspace.participants}
       items={additional} disabled={captureDisabled} onChange={setAdditional} /> : null}
     {capture.eventType === 'kickout' ? <p className="form-hint">O saque de porta gárdase sen posición inicial. Marca só o destino se o coñeces.</p> : null}
-    </div><div className="event-coordinate-sections">
-    {capture.eventType !== 'kickout' ? <div className="tagging-pitch-section">
-      <div><span className="roster-subheading">Posición no campo</span><small>Opcional · escala 0–100</small></div>
-      <PitchCoordinatePicker x={form.x} y={form.y} disabled={captureDisabled}
-        onChange={(x, y) => setForm((current) => ({ ...current, x, y }))} />
-    </div> : null}
-    {capture.eventType === 'pass' || capture.eventType === 'kickout' ? <div className="tagging-pitch-section">
-      <div><span className="roster-subheading">Destino no campo</span><small>Opcional · escala 0–100</small></div>
-      <PitchCoordinatePicker labelPrefix="Destino" x={capture.detail.end_x} y={capture.detail.end_y} disabled={captureDisabled}
-        onChange={(end_x, end_y) => updateCapture(withDestination(capture, end_x, end_y))} />
-    </div> : null}
     </div>
+    <EventPositionFields key={capture.eventType} capture={capture} x={form.x} y={form.y} disabled={captureDisabled}
+      onOrigin={(x, y) => setForm((current) => ({ ...current, x, y }))}
+      onDestination={(end_x, end_y) => updateCapture(withDestination(capture, end_x, end_y))} />
     </div>
+    <div className="capture-submit">
     <button className="button button-primary tagging-save-button" type="submit" disabled={captureDisabled}>
       {busy ? 'Gardando…' : saveLabel}
     </button>
     {onCancel ? <button className="button button-secondary" type="button" disabled={busy} onClick={onCancel}>Cancelar edición</button> : null}
+    {videoToggle}
+    </div>
   </form>
 }

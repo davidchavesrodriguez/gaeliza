@@ -9,14 +9,5 @@ export function CommonEventFields({ workspace, form, disabled, onChange }: Props
         {[workspace.homeTeam, workspace.awayTeam].map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
       </select>
     </label>
-    <label><span>Período</span>
-      <select value={form.periodId} disabled={disabled} onChange={(event) => onChange('periodId', event.target.value)}>
-        {workspace.periods.map((period) => <option key={period.id} value={period.id}>{period.name ?? `Período ${period.number}`}</option>)}
-      </select>
-    </label>
-    <label><span>Tempo no período</span>
-      <input type="text" inputMode="numeric" value={form.clock} placeholder="12:34" disabled={disabled}
-        onChange={(event) => onChange('clock', event.target.value)} />
-    </label>
   </div>
 }
