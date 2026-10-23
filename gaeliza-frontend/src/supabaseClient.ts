@@ -1,19 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types/supabase';
 
+const supabaseUrl = import.meta.env.VITE_GAELIZA_V2_SUPABASE_URL;
+const supabaseKey =
+  import.meta.env.VITE_GAELIZA_V2_SUPABASE_PUBLISHABLE_KEY ??
+  import.meta.env.VITE_GAELIZA_V2_SUPABASE_ANON_KEY;
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseUrl || !supabaseKey) {
   throw new Error(
-    'Faltan variables de verificación'
+    'Faltan variables de configuración de Supabase para Gaeliza v2'
   );
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
-
-
-// Comprobación keys
-console.log('Supabase client initialized with URL:', supabaseUrl ? 'Loaded' : 'Missing');
-console.log('Supabase client initialized with Key:', supabaseAnonKey ? 'Loaded' : 'Missing');
+export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
