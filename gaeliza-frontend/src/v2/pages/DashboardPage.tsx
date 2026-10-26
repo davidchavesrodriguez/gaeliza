@@ -13,15 +13,20 @@ function AnalysisList({ title, items }: { title: string; items: AnalysisListItem
       {items.map((item) => <li className="analysis-list-row" key={item.id}>
         <div className="analysis-list-match">
           <h3>{item.homeTeam} <span aria-hidden="true">—</span> {item.awayTeam}</h3>
-          <span>{item.title ? `${item.title} · ` : ''}{formatMatchDate(item.scheduledAt)}</span>
+          <span>Partido: {item.scheduledAt && Number.isFinite(Date.parse(item.scheduledAt))
+            ? <time dateTime={item.scheduledAt}>{formatMatchDate(item.scheduledAt)}</time>
+            : formatMatchDate(item.scheduledAt)}</span>
+          {item.title ? <span>{item.title}</span> : null}
           <small>{item.eventCount} {item.eventCount === 1 ? 'evento' : 'eventos'} · {item.videoCount > 0 ? 'Vídeo configurado' : 'Sen vídeo'}</small>
         </div>
-        <div className="analysis-list-status"><span className={`badge status-${item.status}`}>{analysisStatusLabels[item.status]}</span>
-          <time dateTime={item.updatedAt} title={formatProductDate(item.updatedAt)}>{formatUpdatedAt(item.updatedAt)}</time></div>
-        <Link className="button button-secondary" to={analysisResumePath(item)}
-          aria-label={`${item.status === 'completed' ? 'Revisar' : 'Continuar'} análise: ${item.homeTeam} — ${item.awayTeam}`}>
-          {item.status === 'completed' ? 'Revisar análise' : 'Continuar análise'} <span aria-hidden="true">→</span>
-        </Link>
+        <div className="analysis-list-reentry">
+          <div className="analysis-list-status"><span>{analysisStatusLabels[item.status]}</span>
+            <span>Actualizada: <time dateTime={item.updatedAt} title={formatProductDate(item.updatedAt)}>{formatUpdatedAt(item.updatedAt)}</time></span></div>
+          <Link className="text-link" to={analysisResumePath(item)}
+            aria-label={`${item.status === 'completed' ? 'Revisar' : 'Continuar'} análise: ${item.homeTeam} — ${item.awayTeam}, ${formatMatchDate(item.scheduledAt)}${item.title ? `, ${item.title}` : ''}`}>
+            {item.status === 'completed' ? 'Revisar análise' : 'Continuar análise'} <span aria-hidden="true">→</span>
+          </Link>
+        </div>
       </li>)}
     </ul>}
   </section>

@@ -175,8 +175,9 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
     await page.getByRole('link',{name:'← Inicio',exact:true}).click()
     const first=page.getByRole('region',{name:'En curso',exact:true}).locator('li').first()
     await first.getByText('Borrador sen eventos',{exact:false}).waitFor()
-    assert.equal(await first.locator('time').getAttribute('datetime'),aggregateActivity.get('draft'))
-    assert.equal(await first.locator('time').textContent(),'Hai un intre')
+    const activity=first.getByText(/^Actualizada:/).locator('time')
+    assert.equal(await activity.getAttribute('datetime'),aggregateActivity.get('draft'))
+    assert.equal(await activity.textContent(),'Hai un intre')
     assert.equal(events.get('draft').length,0)
     await screenshot('dashboard-dark')
   })
@@ -390,6 +391,197 @@ test('resumable analysis product workflow and design smoke',async(t)=>{
     assert.equal(await page.locator('.metric-card,.capability-card').count(),0)
     assert.equal(await page.getByText(/46%|72%|0,81/).count(),0)
     await screenshot('landing-dark')
+  })
+  assert.deepEqual(errors,[])
+})
+
+test('reentry and landing: real list states, responsive reading and keyboard access',async(t)=>{
+  const {browser,origin,html}=await startBrowserHarness(t,{name:'reentry',port:process.env.REENTRY_SMOKE_PORT??5205,source})
+  const context=await browser.newContext({viewport:{width:1440,height:1000},colorScheme:'dark',timezoneId:'Europe/Madrid',reducedMotion:'reduce'})
+  const page=await context.newPage();page.setDefaultTimeout(5000)
+  const errors=[];page.on('pageerror',error=>errors.push(error.message))
+  const row=(index)=>({id:`analysis-${index}`,status:index===2?'completed':index===1?'draft':'in_progress',
+    title:index===1?null:`Revisión ${index+1}`,updated_at:new Date(Date.now()-(index+1)*86_400_000).toISOString(),
+    match:{scheduled_at:`2026-10-${22+index%2}T15:00:00Z`,home:{name:'GB Lorchos'},away:{name:'Atlántico Demo'}},
+    event_count:[{count:index===0?1:index===1?0:125}],videos:[{count:index===1?0:2}]})
+  let rows=[row(0),row(1),row(2)],failOffset=null,holdRead=null
+  const offsets=[]
+  await page.route('**/*',async(route)=>{
+    const request=route.request(),url=new URL(request.url())
+    if(url.origin!==origin)return route.abort()
+    if(request.isNavigationRequest())return route.fulfill({contentType:'text/html',body:html})
+    if(!url.pathname.startsWith('/rest/v1/'))return route.continue()
+    assert.equal(request.method(),'GET');assert.equal(url.pathname,'/rest/v1/analyses')
+    assert.equal(url.searchParams.get('owner_user_id'),'eq.fixture-owner')
+    assert.equal(url.searchParams.get('order'),'updated_at.desc,id.asc')
+    assert.equal(url.searchParams.get('limit'),'50')
+    assert.doesNotMatch(url.searchParams.get('select'),/events\(updated_at\)|activity:/)
+    const offset=Number(url.searchParams.get('offset'));offsets.push(offset)
+    if(holdRead)await holdRead
+    if(offset===failOffset)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({message:'Fixture list unavailable'})})
+    return route.fulfill({contentType:'application/json',body:JSON.stringify(rows.slice(offset,offset+50))})
+  })
+  const list=()=>page.getByRole('region',{name:'En curso',exact:true}).getByRole('listitem')
+  const allRows=()=>page.locator('.dashboard-page').getByRole('listitem')
+  async function dashboard(){await page.goto(origin+'/app');await page.getByRole('heading',{name:'As túas análises',exact:true}).waitFor()}
+  async function ready(){await page.getByRole('status').waitFor({state:'hidden'})}
+  async function setTheme(theme){
+    if(await page.locator('html').getAttribute('data-theme')!==theme){
+      await page.getByRole('button',{name:`Cambiar a tema ${theme==='dark'?'escuro':'claro'}`,exact:true}).click()
+    }
+    await page.getByRole('button',{name:`Cambiar a tema ${theme==='dark'?'claro':'escuro'}`,exact:true}).waitFor()
+    assert.equal(await page.locator('html').getAttribute('data-theme'),theme)
+  }
+  async function screenshot(name,fullPage=true){
+    if(!process.env.REENTRY_SCREENSHOT_DIR)return
+    await mkdir(process.env.REENTRY_SCREENSHOT_DIR,{recursive:true})
+    await page.evaluate(()=>{document.activeElement?.blur();scrollTo(0,0)})
+    await page.mouse.move(0,0)
+    await page.screenshot({path:`${process.env.REENTRY_SCREENSHOT_DIR}/${name}.png`,fullPage,animations:'disabled'})
+  }
+  async function focusWithKeyboard(link){
+    await page.evaluate(()=>{document.activeElement?.blur();document.body.tabIndex=-1;document.body.focus()})
+    let reached=false
+    for(let i=0;i<20;i++){
+      await page.keyboard.press('Tab')
+      if(await link.evaluate(element=>element===document.activeElement)){reached=true;break}
+    }
+    assert.ok(reached,'link reachable in DOM tab order')
+    assert.ok(await link.evaluate(element=>element.matches(':focus-visible')&&getComputedStyle(element).outlineStyle!=='none'),'visible keyboard focus')
+    const box=await link.boundingBox();assert.ok(box.height>=44,'touch target height')
+    assert.ok(await link.evaluate(element=>{
+      const box=element.getBoundingClientRect(),hit=document.elementFromPoint(box.x+box.width/2,box.y+box.height/2)
+      return element===hit||element.contains(hit)
+    }),'focused action is in view and not obscured')
+  }
+  async function noOverflow(label){
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${label}: no horizontal overflow`)
+    for(const link of await page.getByRole('link').all()){
+      const box=await link.boundingBox()
+      if(box&&await link.isVisible())assert.ok(box.x>=0&&box.x+box.width<=await page.evaluate(()=>innerWidth)+1,`${label}: link fits horizontally`)
+    }
+  }
+  async function contrast(){
+    const colors=await page.evaluate(()=>{const css=getComputedStyle(document.documentElement);return Object.fromEntries(['paper','ink','ink-soft','accent','on-accent'].map(key=>[key,css.getPropertyValue('--'+key).trim()]))})
+    for(const [a,b,min]of [['ink','paper',4.5],['ink-soft','paper',4.5],['accent','paper',4.5],['on-accent','accent',4.5]])assert.ok(contrastRatio(colors[a],colors[b])>=min,`${a}/${b}`)
+  }
+  await t.test('initial loading, failed read and retry preserve the guest warning and create action',async()=>{
+    let release;holdRead=new Promise(resolve=>{release=resolve});failOffset=0
+    await dashboard();await page.getByRole('status').getByText('Cargando análises…').waitFor()
+    await page.getByText(/Sesión de invitado: para retomar/).waitFor()
+    assert.equal(await page.getByRole('link',{name:'Nova análise',exact:true}).last().getAttribute('href'),'/app/new')
+    release();holdRead=null
+    await page.getByRole('alert').getByText(/Fixture list unavailable/).waitFor()
+    assert.equal(await allRows().count(),0)
+    failOffset=null;await page.getByRole('button',{name:'Reintentar',exact:true}).click()
+    await list().first().waitFor();await ready()
+    assert.equal(await allRows().count(),3);assert.deepEqual(offsets,[0,0])
+  })
+  await t.test('match dates differ from aggregate activity; facts, groups and resume links keep their meaning',async()=>{
+    await dashboard();await ready()
+    assert.equal(await list().count(),2)
+    const completed=page.getByRole('region',{name:'Completadas',exact:true})
+    assert.equal(await completed.getByRole('listitem').count(),1)
+    await page.getByRole('heading',{name:'En curso 2',exact:true}).waitFor()
+    await page.getByRole('heading',{name:'Completadas 1',exact:true}).waitFor()
+    for(const [index,status,path]of [[0,'En curso','tagging'],[1,'Borrador','roster'],[2,'Completada','tagging']]){
+      const item=allRows().nth(index)
+      await item.getByText(status,{exact:true}).waitFor()
+      assert.equal(await item.getByText(/^Partido:/).locator('time').getAttribute('datetime'),rows[index].match.scheduled_at)
+      assert.equal(await item.getByText(/^Actualizada:/).locator('time').getAttribute('datetime'),rows[index].updated_at)
+      assert.match(await item.getByText(/^Actualizada:/).textContent(),/Hai \d+ día/)
+      assert.equal(await item.getByRole('link').getAttribute('href'),`/app/analyses/analysis-${index}?step=${path}`)
+      assert.match(await item.getByRole('link').getAttribute('aria-label'),index===2?/^Revisar análise/:/^Continuar análise/)
+    }
+    await list().nth(0).getByText('Partido: 22 out. 2026, 17:00',{exact:true}).waitFor()
+    await list().nth(1).getByText('Partido: 23 out. 2026, 17:00',{exact:true}).waitFor()
+    await page.getByText('1 evento · Vídeo configurado',{exact:true}).waitFor()
+    await page.getByText('0 eventos · Sen vídeo',{exact:true}).waitFor()
+    await page.getByText('125 eventos · Vídeo configurado',{exact:true}).waitFor()
+    await list().first().getByText('Revisión 1',{exact:true}).waitFor()
+    assert.doesNotMatch(await list().nth(1).textContent(),/Revisión|null|undefined/)
+    assert.notEqual(await list().nth(0).getByRole('link').getAttribute('aria-label'),await list().nth(1).getByRole('link').getAttribute('aria-label'))
+    await screenshot('dashboard-mixed-desktop-dark')
+    await focusWithKeyboard(list().first().getByRole('link'))
+  })
+  await t.test('dashboard wraps at five widths in both themes, including doubled text',async()=>{
+    for(const theme of ['dark','light']){
+      await setTheme(theme)
+      await contrast()
+      for(const width of [1440,1024,768,390,320]){
+        await page.setViewportSize({width,height:900});await noOverflow(`dashboard ${theme} ${width}`)
+        await page.evaluate(()=>document.documentElement.style.fontSize='30px')
+        await noOverflow(`dashboard ${theme} ${width} text 200%`)
+        await focusWithKeyboard(list().first().getByRole('link'))
+        await page.evaluate(()=>document.documentElement.style.fontSize='')
+        if(theme==='dark'&&width===390)await screenshot('dashboard-mixed-mobile-dark')
+        if(theme==='light'&&width===1440)await screenshot('dashboard-mixed-desktop-light')
+      }
+    }
+  })
+  await t.test('long names wrap, missing match date has no invalid time element, empty state has one main create action',async()=>{
+    rows=[row(0)];rows[0].match.home.name='Asociación Deportiva de Fútbol Gaélico da Costa Atlántica'
+    rows[0].match.away.name='EquipoVisitanteCunNomeMoiLongoSenEspazosParaComprobarAxuste'
+    rows[0].title='Revisión da segunda parte e preparación do seguinte encontro'
+    rows[0].match.scheduled_at=null
+    await setTheme('dark');await dashboard();await ready()
+    await list().first().getByText('Partido: Data por confirmar',{exact:true}).waitFor()
+    assert.equal(await list().first().locator('time').count(),1)
+    await page.setViewportSize({width:390,height:844});await noOverflow('long names 390')
+    await screenshot('dashboard-long-names-mobile-dark')
+    await page.setViewportSize({width:320,height:568});await page.evaluate(()=>document.documentElement.style.fontSize='30px')
+    await noOverflow('long names 320 text 200%');await focusWithKeyboard(list().first().getByRole('link'))
+    rows=[];await page.setViewportSize({width:1440,height:1000});await dashboard();await ready()
+    await page.getByRole('heading',{name:'Aínda non tes análises.',exact:true}).waitFor()
+    assert.equal(await page.getByRole('main').getByRole('link',{name:'Nova análise',exact:true}).count(),1)
+    await screenshot('dashboard-empty-desktop-dark')
+  })
+  await t.test('load-more error retries the same offset, retains order, deduplicates and stops at hasMore=false',async()=>{
+    rows=Array.from({length:50},(_,index)=>row(index));rows.push({...rows[0]},row(50))
+    offsets.length=0;await dashboard();await ready()
+    assert.equal(await allRows().count(),50)
+    const before=await list().getByRole('link').evaluateAll(links=>links.map(link=>link.getAttribute('href')))
+    failOffset=50
+    await page.getByRole('button',{name:'Cargar máis análises',exact:true}).click()
+    await page.getByRole('alert').getByText(/Fixture list unavailable/).waitFor()
+    assert.equal(await allRows().count(),50)
+    assert.deepEqual(await list().getByRole('link').evaluateAll(links=>links.map(link=>link.getAttribute('href'))),before)
+    failOffset=null;await page.getByRole('button',{name:'Reintentar',exact:true}).click();await ready()
+    assert.deepEqual(offsets,[0,50,50]);assert.equal(await allRows().count(),51)
+    assert.equal(await page.getByRole('button',{name:'Cargar máis análises',exact:true}).count(),0)
+    const after=await list().getByRole('link').evaluateAll(links=>links.map(link=>link.getAttribute('href')))
+    assert.deepEqual(after.slice(0,-1),before);assert.equal(after.at(-1),'/app/analyses/analysis-50?step=tagging')
+    // Capture the actual second-page boundary, without shrinking or hiding rows.
+    await list().last().scrollIntoViewIfNeeded()
+    if(process.env.REENTRY_SCREENSHOT_DIR)await page.screenshot({path:`${process.env.REENTRY_SCREENSHOT_DIR}/dashboard-paginated-dark.png`,animations:'disabled'})
+  })
+  await t.test('landing retains purpose, guest note, workflow and keyboard entry across themes and sizes',async()=>{
+    await page.goto(origin+'/')
+    assert.equal(await page.getByRole('heading',{level:1}).count(),1)
+    assert.equal(await page.getByRole('heading',{level:2}).count(),2)
+    await page.getByRole('heading',{name:'O partido, xogada a xogada.',exact:true}).waitFor()
+    const primary=page.getByRole('link',{name:'Comezar unha análise',exact:true})
+    const secondary=page.getByRole('banner').getByRole('link',{name:'Abrir aplicación',exact:true})
+    assert.equal(await primary.getAttribute('href'),'/app');assert.equal(await secondary.getAttribute('href'),'/app')
+    await page.getByText('Podes probar como invitado. Para continuar, volve desde o mesmo navegador.',{exact:true}).waitFor()
+    for(const text of ['Prepara o partido','Sincroniza vídeo e reloxo','Rexistra e revisa'])await page.getByText(text,{exact:true}).waitFor()
+    await page.getByText(/En directo ou coa gravación/).waitFor()
+    for(const theme of ['dark','light']){
+      await setTheme(theme)
+      await contrast()
+      for(const width of [1440,1024,768,390,320]){
+        await page.setViewportSize({width,height:900});await noOverflow(`landing ${theme} ${width}`)
+        if(width===1440||width===390)await screenshot(`landing-${width===1440?'desktop':'mobile'}-${theme}`)
+        await page.evaluate(()=>document.documentElement.style.fontSize='30px')
+        await noOverflow(`landing ${theme} ${width} text 200%`)
+        await focusWithKeyboard(secondary);await focusWithKeyboard(primary)
+        await page.evaluate(()=>document.documentElement.style.fontSize='')
+      }
+    }
+    // Enter follows the same real /app route as the header and lower entry links.
+    rows=[];await focusWithKeyboard(primary);await page.keyboard.press('Enter')
+    await page.getByRole('heading',{name:'Aínda non tes análises.',exact:true}).waitFor()
+    assert.equal(new URL(page.url()).pathname,'/app')
   })
   assert.deepEqual(errors,[])
 })
