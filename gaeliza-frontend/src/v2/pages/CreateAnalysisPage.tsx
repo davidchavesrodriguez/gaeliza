@@ -7,6 +7,7 @@ import { createPersonalMatchAnalysis } from '../data/personal-matches'
 import { localDateTimeToInstant, type TeamOption } from '../domain/personal-setup'
 import type { AnalysisMode, MatchOption } from '../domain/matches'
 import { SetupTeamSelector } from '../components/setup/SetupTeamSelector'
+import { SetupTeamRoster } from '../components/setup/SetupTeamRoster'
 import { ExistingMatchOption } from '../components/setup/ExistingMatchOption'
 
 export function CreateAnalysisPage() {
@@ -58,9 +59,9 @@ export function CreateAnalysisPage() {
         {matches.map((match) => <ExistingMatchOption key={match.id} match={match} selected={match.id === selectedMatchId} onSelect={() => setSelectedMatchId(match.id)} />)}
       </div></fieldset> : null}
     </section> : <div className="setup-teams">
-      <SetupTeamSelector label="Equipo local" selected={home} onSelect={setHome} userId={session?.user.id} busy={locked} onBusy={setBusy}
+      <SetupTeamSelector label="Equipo local" selected={home} onSelect={setHome} busy={locked} onBusy={setBusy}
         revision={catalogRevision} onCreated={() => setCatalogRevision((v) => v + 1)} />
-      <SetupTeamSelector label="Equipo visitante" selected={away} onSelect={setAway} userId={session?.user.id} busy={locked} onBusy={setBusy}
+      <SetupTeamSelector label="Equipo visitante" selected={away} onSelect={setAway} busy={locked} onBusy={setBusy}
         revision={catalogRevision} onCreated={() => setCatalogRevision((v) => v + 1)} />
     </div>}
     <form className="setup-match-form" onSubmit={(event) => { void submit(event) }}>
@@ -79,5 +80,13 @@ export function CreateAnalysisPage() {
         <button className="button button-primary" type="submit" disabled={locked || (path === 'existing' ? loading || !selectedMatchId : !home || !away || sameTeam || !date)}>{creating ? 'Creando análise…' : 'Crear análise'}</button>
       </div>
     </form>
+    {path === 'new' && ((home?.scope === 'personal' && home.ownerUserId === session?.user.id) || (away?.scope === 'personal' && away.ownerUserId === session?.user.id)) ?
+      <section className="setup-optional-rosters" aria-label="Planteles opcionais">
+        <h2>Planteles opcionais</h2>
+        <div className="setup-rosters">
+          <SetupTeamRoster key={`home-${home?.id ?? ''}`} label="Equipo local" selected={home} userId={session?.user.id} busy={locked} onBusy={setBusy} />
+          <SetupTeamRoster key={`away-${away?.id ?? ''}`} label="Equipo visitante" selected={away} userId={session?.user.id} busy={locked} onBusy={setBusy} />
+        </div>
+      </section> : null}
   </div>
 }

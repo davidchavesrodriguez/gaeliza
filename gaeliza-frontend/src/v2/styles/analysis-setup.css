@@ -30,11 +30,22 @@
 .self-service-setup .page-heading p { margin: 4px 0 0; }
 .setup-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; align-items: start; }
 .setup-team { min-width: 0; }
-.setup-team > .text-link { background: transparent; border: 0; padding: 0; min-height: 44px; cursor: pointer; }
 .setup-team h2 { font-size: 1.15rem; margin: 0 0 12px; }
+.setup-team-selected { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; min-width: 0; }
+.setup-team-selected > div { display: grid; gap: 4px; min-width: 0; }
+.setup-team-selected strong { overflow-wrap: anywhere; }
+.setup-team-selected span { color: var(--ink-soft); font-size: .9rem; }
 .self-service-setup label { display: grid; gap: 4px; font-size: .9rem; color: var(--ink-soft); min-width: 0; }
 .setup-team-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; margin-bottom: 12px; }
 .setup-team-create, .setup-match-form { display: grid; gap: 12px; }
+.setup-optional-rosters { border-top: 1px solid var(--line); padding-top: 16px; }
+.setup-optional-rosters > h2 { font-size: 1.15rem; margin: 0 0 12px; }
+.setup-rosters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+.setup-team-roster { min-width: 0; }
+.setup-roster-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+.setup-roster-heading h3 { font-size: 1rem; margin: 0; }
+.setup-roster-heading p { margin: 4px 0 0; color: var(--ink-soft); overflow-wrap: anywhere; }
+.setup-roster-heading .text-link { background: transparent; border: 0; padding: 0; min-height: 44px; cursor: pointer; }
 .setup-pagination { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .setup-mode, .setup-existing-matches { border: 0; padding: 0; margin: 0; min-width: 0; }
 .setup-mode legend { margin-bottom: 8px; }
@@ -48,5 +59,5 @@
 .setup-player-list strong { overflow-wrap: anywhere; }
 .setup-player-list span { color: var(--ink-soft); }
 .setup-player-form button { justify-self: start; }
-@media (max-width: 800px) { .setup-teams { grid-template-columns: 1fr; } }
+@media (max-width: 800px) { .setup-teams, .setup-rosters { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .setup-match-fields, .setup-player-form { grid-template-columns: 1fr; } }
