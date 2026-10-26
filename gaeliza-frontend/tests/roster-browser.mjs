@@ -18,6 +18,7 @@ test('roster ergonomics with real page and data layer',async(t)=>{
  `})
  const page=await browser.newPage({viewport:{width:1440,height:1100},colorScheme:'dark'});page.setDefaultTimeout(5000)
  const errors=[];page.on('pageerror',e=>errors.push(e.message))
+ let videos=[],points=[],direction='right',mode='post_match'
  let participants=Array.from({length:10},(_,i)=>player(i+1)),status='draft',failWrite=false
  const writes=[]
  await page.route('**/*',async route=>{
@@ -26,7 +27,7 @@ test('roster ergonomics with real page and data layer',async(t)=>{
   if(req.isNavigationRequest())return route.fulfill({contentType:'text/html',body:html})
   if(!url.pathname.startsWith('/rest/v1/'))return route.continue()
   const reply=(data,code=200)=>route.fulfill({status:code,contentType:'application/json',body:JSON.stringify(data)})
-  if(url.pathname.endsWith('/analyses'))return reply({id:'analysis',title:null,mode:'post_match',status,match_id:'match',match:{id:'match',scheduled_at:null,home_team:home,away_team:away}})
+  if(url.pathname.endsWith('/analyses'))return reply({id:'analysis',title:null,mode,status,match_id:'match',match:{id:'match',scheduled_at:null,home_team:home,away_team:away}})
   if(url.pathname.endsWith('/analysis_participants')){
    if(req.method()==='POST'){
     const input=req.postDataJSON();writes.push(input)
@@ -40,8 +41,24 @@ test('roster ergonomics with real page and data layer',async(t)=>{
    return reply(participants)
   }
   if(url.pathname.endsWith('/team_players'))return reply(Array.from({length:12},(_,i)=>({team_id:'home',default_number:i+1,player:{id:`player${i+1}`,first_name:`Xogador ${String(i+1).padStart(2,'0')}`,last_name:null,primary_position:'Defender'}})))
-  if(url.pathname.endsWith('/analysis_periods'))return reply([{id:'period',number:1,name:null,expected_duration_seconds:1800,home_attacks_towards:'right'}])
-  if(['/analysis_videos','/video_sync_points'].some(x=>url.pathname.endsWith(x)))return reply([])
+  if(url.pathname.endsWith('/analysis_periods')){
+   if(req.method()==='PATCH'){direction=req.postDataJSON().home_attacks_towards;return reply(null)}
+   return reply([{id:'period',number:1,name:null,expected_duration_seconds:1800,home_attacks_towards:direction}])
+  }
+  if(url.pathname.endsWith('/analysis_videos')||url.pathname.endsWith('/video_sync_points')){
+   const isVideo=url.pathname.endsWith('/analysis_videos'),rows=isVideo?videos:points
+   if(req.method()==='POST'){
+    const input=req.postDataJSON();writes.push(input)
+    if(failWrite)return reply({message:'Fixture write failed'},400)
+    rows.push({id:`item${writes.length}`,...input});return reply(null,201)
+   }
+   if(req.method()==='DELETE'){
+    const id=url.searchParams.get('id').slice(3)
+    if(isVideo){videos=videos.filter(v=>v.id!==id);points=points.filter(p=>p.analysis_video_id!==id)}else points=points.filter(p=>p.id!==id)
+    return reply(null)
+   }
+   return reply(rows)
+  }
   throw new Error(`Unexpected request ${req.method()} ${url.pathname}`)
  })
  const region=name=>page.getByRole('region',{name:`Convocatoria de ${name}`,exact:true})
@@ -93,9 +110,12 @@ test('roster ergonomics with real page and data layer',async(t)=>{
  })
  await t.test('long roster keeps Continue in viewport and navigation reaches video setup',async()=>{
   participants=[...Array.from({length:30},(_,i)=>player(i+1)),...participants.filter(p=>p.team_id==='away')];await go()
-  await page.evaluate(()=>scrollTo(0,900))
+  await page.getByRole('navigation',{name:'Ir á convocatoria dun equipo'}).getByRole('link',{name:/Atlántico/}).focus()
+  await page.keyboard.press('Enter')
+  assert.equal(await page.locator('#roster-away').evaluate(e=>e===document.activeElement),true)
+  await visitor.getByRole('link',{name:'Volver a Continuar'}).click()
   const box=await page.getByRole('button',{name:'Continuar',exact:true}).boundingBox()
-  assert.ok(box.y>=64&&box.y+box.height<=1100)
+  assert.ok(box.y>=0&&box.y+box.height<=1100)
   await shot('desktop-long-roster')
   await visitor.getByLabel('Nome ou etiqueta').fill('Borrador ao volver')
   await page.getByRole('button',{name:'Continuar',exact:true}).click()
@@ -105,24 +125,122 @@ test('roster ergonomics with real page and data layer',async(t)=>{
   assert.equal(await visitor.getByLabel('Nome ou etiqueta').inputValue(),'Borrador ao volver')
  })
  await t.test('tablet/mobile stack teams without overflow and preserve keyboard access',async()=>{
-  for(const width of [900,390]){
+  for(const width of [1024,768,390,320]){
    await page.setViewportSize({width,height:844});await page.evaluate(()=>scrollTo(0,0))
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
    assert.equal(await page.locator('.roster-navigation').evaluate(e=>getComputedStyle(e).position),'static')
-   assert.ok((await visitor.boundingBox()).y>(await local.boundingBox()).y)
+   if(width<1001)assert.ok((await visitor.boundingBox()).y>(await local.boundingBox()).y)
+   await page.getByRole('navigation',{name:'Ir á convocatoria dun equipo'}).getByRole('link',{name:/Atlántico/}).click()
+   await visitor.getByRole('link',{name:'Ir a GB Lorchos'}).click()
+   assert.equal(await page.locator('#roster-home').evaluate(e=>e===document.activeElement),true)
   }
   await shot('mobile')
   await visitor.getByLabel('Nome ou etiqueta').focus()
   assert.equal(await visitor.getByLabel('Nome ou etiqueta').evaluate(e=>document.activeElement===e),true)
  })
- await t.test('large available roster bounded; completed blocks mutations but allows video review',async()=>{
+ await t.test('available players stay in document flow; completed blocks mutations but allows video review',async()=>{
   participants=[];status='completed';await go()
-  assert.equal(await local.locator('.available-player-list-scroll').count(),1)
-  assert.ok((await local.locator('.available-player-list-scroll').boundingBox()).height<=264)
+  assert.equal(await local.locator('.available-player-list-scroll').count(),0)
   assert.equal(await local.locator('.available-player').first().isDisabled(),true)
   assert.equal(await visitor.getByLabel('Nome ou etiqueta').isDisabled(),true)
   await page.getByRole('button',{name:'Continuar',exact:true}).click()
   assert.equal(new URL(page.url()).searchParams.get('step'),'video')
+ })
+
+ await t.test('long names wrap at narrow sizes without hiding team navigation',async()=>{
+  status='draft';participants=[{...player(1),display_name_snapshot:'María Antía Fernández Rodríguez de Santiago de Compostela'}];await go()
+  for(const width of [1440,1024,768,390,320]){
+   await page.setViewportSize({width,height:900})
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+   await local.getByText('María Antía Fernández Rodríguez de Santiago de Compostela',{exact:true}).waitFor()
+  }
+  const originalName=home.name;home.name='Asociación Deportiva de Fútbol Gaélico da Costa Atlántica'
+  await page.reload();await page.getByRole('heading',{name:home.name,exact:true}).waitFor()
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+  await shot('roster-long-names-mobile')
+  home.name=originalName;await go()
+ })
+ await t.test('video sources retain optional duration, URL validation, sort order and failed drafts',async()=>{
+  await page.getByRole('button',{name:'Continuar',exact:true}).click()
+  await page.getByText('Aínda non hai vídeo.',{exact:true}).waitFor()
+  await page.getByLabel('URL do vídeo',{exact:true}).fill('ftp://example.test/a')
+  await page.getByRole('button',{name:'Engadir vídeo',exact:true}).click()
+  await page.getByRole('alert').getByText(/URL http ou https/).waitFor()
+  await page.getByLabel('URL do vídeo',{exact:true}).fill('https://example.test/a')
+  await page.getByLabel(/^Título/).fill('Cámara principal')
+  await page.getByLabel(/^Duración/).fill('bad')
+  await page.getByRole('button',{name:'Engadir vídeo',exact:true}).click()
+  await page.getByRole('alert').getByText(/A duración debe ser un tempo válido/).waitFor()
+  await page.getByLabel(/^Duración/).fill('10:00')
+  failWrite=true;await page.getByRole('button',{name:'Engadir vídeo',exact:true}).click()
+  await page.getByText(/Fixture write failed/).waitFor()
+  assert.equal(await page.getByLabel(/^Título/).inputValue(),'Cámara principal')
+  failWrite=false;await page.getByRole('button',{name:'Engadir vídeo',exact:true}).click();await saved()
+  assert.equal(videos[0].duration_seconds,600);assert.equal(videos[0].sort_order,0)
+  await page.getByText('Aínda non hai puntos de sincronización.',{exact:true}).waitFor()
+  await page.getByLabel('URL do vídeo',{exact:true}).fill('https://example.test/b')
+  await page.getByLabel(/^Título/).fill('Cámara visitante cun nome longo para identificar a gravación completa')
+  await page.getByRole('button',{name:'Engadir vídeo',exact:true}).click();await saved()
+  assert.equal(videos[1].duration_seconds,null);assert.equal(videos[1].sort_order,1)
+ })
+ await t.test('clock pair preserves validation, fractional video precision and points after cuts',async()=>{
+  const videoClock=page.getByRole('group',{name:'Reloxo do vídeo',exact:true}),matchClock=page.getByRole('group',{name:'Reloxo do partido',exact:true})
+  await videoClock.getByLabel('Tempo no vídeo',{exact:true}).fill('bad')
+  await matchClock.getByLabel('Tempo no período',{exact:true}).fill('0:00')
+  await page.getByRole('button',{name:'Engadir punto',exact:true}).click()
+  await page.getByRole('alert').getByText(/Usa tempos válidos/).waitFor()
+  await videoClock.getByLabel('Tempo no vídeo',{exact:true}).fill('10:01')
+  await page.getByRole('button',{name:'Engadir punto',exact:true}).click()
+  await page.getByRole('alert').getByText(/supera a duración coñecida/).waitFor()
+  await videoClock.getByLabel('Tempo no vídeo',{exact:true}).fill('3:42.250')
+  await matchClock.getByLabel('Tempo no período',{exact:true}).fill('0.5')
+  await page.getByRole('button',{name:'Engadir punto',exact:true}).click()
+  await page.getByRole('alert').getByText(/Usa tempos válidos/).waitFor()
+  await matchClock.getByLabel('Tempo no período',{exact:true}).fill('30:01')
+  await page.getByRole('button',{name:'Engadir punto',exact:true}).click()
+  await page.getByRole('alert').getByText(/supera a duración configurada/).waitFor()
+  await matchClock.getByLabel('Tempo no período',{exact:true}).fill('0:00')
+  await page.getByRole('button',{name:'Engadir punto',exact:true}).click();await saved()
+  assert.equal(points[0].video_second,222.25);assert.equal(points[0].second_in_period,0)
+  await page.getByText('3:42.25',{exact:true}).waitFor()
+  await videoClock.getByLabel('Tempo no vídeo',{exact:true}).fill('5:00')
+  await matchClock.getByLabel('Tempo no período',{exact:true}).fill('1:00')
+  await page.getByRole('button',{name:'Engadir punto',exact:true}).click();await saved()
+  assert.equal(points.length,2);assert.equal(points[1].second_in_period,60)
+  await page.getByLabel('Dirección do período 1',{exact:true}).selectOption('left');await saved();assert.equal(direction,'left')
+  await page.getByRole('button',{name:'Quitar punto de Cámara principal en 5:00',exact:true}).click();await saved();assert.equal(points.length,1)
+  for(const width of [1440,1024,768,390,320]){
+   await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+  }
+  for(const width of [1440,390,320]){
+   await page.setViewportSize({width,height:900});await page.evaluate(()=>document.documentElement.style.fontSize='200%')
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`200% text at ${width}: ${await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth).map(e=>[e.tagName,e.className,e.getBoundingClientRect().width]).slice(-15))}`)
+   await page.evaluate(()=>document.documentElement.style.fontSize='')
+  }
+  await shot('video-sync-mobile')
+  await page.setViewportSize({width:1440,height:900});await shot('video-sync-desktop')
+  await page.getByRole('button',{name:'Cambiar a tema claro'}).click();await shot('video-sync-light')
+  await page.getByRole('button',{name:'Cambiar a tema escuro'}).click()
+ })
+ await t.test('completed video keeps links and navigation but disables every mutation',async()=>{
+  status='completed';await page.reload();await page.getByRole('heading',{name:'Fontes da análise',exact:true}).waitFor()
+  for(const name of ['Engadir vídeo','Engadir punto','Quitar vídeo Cámara principal'])assert.equal(await page.getByRole('button',{name,exact:true}).isDisabled(),true)
+  assert.equal(await page.getByLabel('Dirección do período 1',{exact:true}).isDisabled(),true)
+  assert.equal(await page.getByRole('button',{name:'Comezar tagging',exact:true}).isEnabled(),true)
+  assert.equal(await page.getByRole('link',{name:'Abrir vídeo',exact:true}).count(),2)
+  status='draft';await page.reload();await page.getByRole('heading',{name:'Fontes da análise',exact:true}).waitFor()
+  await page.getByRole('button',{name:'Quitar vídeo Cámara principal',exact:true}).click();await saved()
+  assert.equal(videos.length,1);assert.equal(points.length,0)
+  await page.getByRole('button',{name:'← Convocatoria',exact:true}).click();await local.waitFor()
+ })
+
+ await t.test('live without video stays navigable and unknown sync references remain explicit',async()=>{
+  videos=[];points=[{id:'orphan',analysis_video_id:'missing',analysis_period_id:'missing',video_second:0,second_in_period:0}];mode='live'
+  await go();await page.getByRole('button',{name:'Continuar',exact:true}).click()
+  await page.getByText('Vídeo descoñecido',{exact:true}).waitFor()
+  await page.getByText(/Período descoñecido · Tempo no período/).waitFor()
+  await page.getByText('Captura rápida en directo e enriquecemento posterior.',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:'Comezar tagging',exact:true}).isEnabled(),true)
  })
  assert.deepEqual(errors,[])
 })

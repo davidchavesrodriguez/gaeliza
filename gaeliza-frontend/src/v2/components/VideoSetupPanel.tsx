@@ -225,6 +225,248 @@ export function VideoSetupPanel({
       ) : null}
 
       <fieldset className="workspace-fields" disabled={busy || workspace.status === 'completed'}>
+      <section className="state-card video-library-card">
+        <div className="section-heading-inline">
+          <div>
+
+            <h2>Fontes da análise</h2>
+            <p>
+              Podes usar un ou varios vídeos. En directo é opcional: engádeo máis
+              tarde se queres enriquecer o tagging desde gravación.
+            </p>
+          </div>
+          <span className="preparation-count">{workspace.videos.length} {workspace.videos.length === 1 ? 'vídeo' : 'vídeos'}</span>
+        </div>
+
+        {workspace.videos.length > 0 ? (
+          <div className="video-list">
+            {workspace.videos.map((video) => (
+              <div className="video-row" key={video.id}>
+                <div className="video-row-main">
+                  <strong>{getVideoLabel(video)}</strong>
+                  {isSafeHttpUrl(video.url) ? <a href={video.url} target="_blank" rel="noreferrer">
+                    Abrir vídeo
+                  </a> : <span>URL de vídeo non compatible</span>}
+                  <small>
+                    {video.durationSeconds === null
+                      ? 'Duración descoñecida'
+                      : `Duración · ${formatAnalysisClock(video.durationSeconds)}`}
+                  </small>
+                </div>
+                <button
+                  className="participant-remove"
+                  aria-label={`Quitar vídeo ${getVideoLabel(video)}`}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    void onRemoveVideo(video.id)
+                  }}
+                >
+                  Quitar
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state compact-empty-state">
+            <strong>Aínda non hai vídeo.</strong>
+            <p>
+              Podes continuar preparando a análise e engadir o vídeo cando dispoñas da
+              gravación.
+            </p>
+          </div>
+        )}
+
+        <form className="video-add-form" onSubmit={handleAddVideo}>
+          <label className="video-url-field">
+            <span>URL do vídeo</span>
+            <input
+              type="url"
+              value={videoUrl}
+              disabled={busy}
+              maxLength={2048}
+              placeholder="https://…"
+              onChange={(event) => {
+                setVideoUrl(event.target.value)
+              }}
+            />
+          </label>
+
+          <label>
+            <span>Título <small>(opcional)</small></span>
+            <input
+              type="text"
+              value={videoTitle}
+              disabled={busy}
+              maxLength={200}
+              placeholder="Cámara principal"
+              onChange={(event) => {
+                setVideoTitle(event.target.value)
+              }}
+            />
+          </label>
+
+          <label>
+            <span>Duración <small>(opcional)</small></span>
+            <input
+              type="text"
+              value={videoDuration}
+              disabled={busy}
+              inputMode="decimal"
+              placeholder="72:30"
+              onChange={(event) => {
+                setVideoDuration(event.target.value)
+              }}
+            />
+          </label>
+
+          <button
+            className="button button-secondary"
+            type="submit"
+            disabled={busy || !videoUrl.trim()}
+          >
+            {busy ? 'Gardando…' : 'Engadir vídeo'}
+          </button>
+        </form>
+      </section>
+
+      <section className="state-card sync-card">
+        <div className="section-heading-inline">
+          <div>
+
+            <h2>Relaciona o reloxo do vídeo co reloxo do partido</h2>
+            <p>
+              Indica en que instante do vídeo comeza este período. Se a primeira parte comeza no 03:42 do vídeo: vídeo 03:42 → tempo no período 00:00.
+              Engade outro punto despois dun corte para manter os reloxos sincronizados.
+            </p>
+          </div>
+          <span className="preparation-count">{workspace.syncPoints.length} {workspace.syncPoints.length === 1 ? 'punto' : 'puntos'}</span>
+        </div>
+
+        {workspace.syncPoints.length > 0 ? (
+          <div className="sync-list">
+            {workspace.syncPoints.map((syncPoint) => {
+              const video = getVideoForSyncPoint(workspace, syncPoint)
+
+              return (
+                <div className="sync-row" key={syncPoint.id}>
+                  <div>
+                    <strong>{video ? getVideoLabel(video) : 'Vídeo descoñecido'}</strong>
+                    <div className="sync-clock-pair">
+                      <span><small>Tempo no vídeo</small><strong>{formatAnalysisClock(syncPoint.videoSecond)}</strong></span>
+                      <span aria-hidden="true">→</span>
+                      <span><small>{getPeriodLabel(workspace, syncPoint.periodId)} · Tempo no período</small><strong>{formatAnalysisClock(syncPoint.secondInPeriod)}</strong></span>
+                    </div>
+                  </div>
+                  <button
+                    className="participant-remove"
+                    aria-label={`Quitar punto de ${video ? getVideoLabel(video) : 'Vídeo descoñecido'} en ${formatAnalysisClock(syncPoint.videoSecond)}`}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      void onRemoveSyncPoint(syncPoint.id)
+                    }}
+                  >
+                    Quitar
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        ) : <p className="form-hint">Aínda non hai puntos de sincronización.</p>}
+
+        {workspace.videos.length > 0 ? (
+          <form className="sync-add-form" onSubmit={handleAddSyncPoint}>
+            <div className="sync-clock-inputs">
+              <fieldset><legend>Reloxo do vídeo</legend>
+            <label>
+              <span>Vídeo</span>
+              <select
+                value={syncVideoId}
+                disabled={busy}
+                onChange={(event) => {
+                  setSyncVideoId(event.target.value)
+                }}
+              >
+                {workspace.videos.map((video) => (
+                  <option key={video.id} value={video.id}>
+                    {getVideoLabel(video)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Tempo no vídeo</span>
+              <input
+                type="text"
+                value={syncVideoTime}
+                disabled={busy}
+                inputMode="decimal"
+                placeholder="2:05.250"
+                onChange={(event) => {
+                  setSyncVideoTime(event.target.value)
+                }}
+              />
+            </label>
+
+              </fieldset>
+              <span className="sync-clock-arrow" aria-hidden="true">→</span>
+              <fieldset><legend>Reloxo do partido</legend>
+            <label>
+              <span>Período</span>
+              <select
+                value={syncPeriodId}
+                disabled={busy}
+                onChange={(event) => {
+                  setSyncPeriodId(event.target.value)
+                }}
+              >
+                {workspace.periods.map((period) => (
+                  <option key={period.id} value={period.id}>
+                    {period.name ?? `Período ${period.number}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Tempo no período</span>
+              <input
+                type="text"
+                value={syncPeriodTime}
+                disabled={busy}
+                inputMode="numeric"
+                placeholder="0:00"
+                onChange={(event) => {
+                  setSyncPeriodTime(event.target.value)
+                }}
+              />
+            </label>
+
+              </fieldset>
+            </div>
+            <button
+              className="button button-secondary"
+              type="submit"
+              disabled={
+                busy ||
+                !syncVideoId ||
+                !syncPeriodId ||
+                !syncVideoTime.trim() ||
+                !syncPeriodTime.trim()
+              }
+            >
+              {busy ? 'Gardando…' : 'Engadir punto'}
+            </button>
+          </form>
+        ) : (
+          <div className="empty-state compact-empty-state">
+            <strong>Engade un vídeo para crear puntos de sincronización.</strong>
+          </div>
+        )}
+      </section>
+
       <section className="state-card video-orientation-card">
         <div className="section-heading-inline">
           <div>
@@ -265,239 +507,6 @@ export function VideoSetupPanel({
             </div>
           ))}
         </div>
-      </section>
-
-      <section className="state-card video-library-card">
-        <div className="section-heading-inline">
-          <div>
-
-            <h2>Fontes da análise</h2>
-            <p>
-              Podes usar un ou varios vídeos. En directo é opcional: engádeo máis
-              tarde se queres enriquecer o tagging desde gravación.
-            </p>
-          </div>
-          <span className="badge">{workspace.videos.length} vídeos</span>
-        </div>
-
-        {workspace.videos.length > 0 ? (
-          <div className="video-list">
-            {workspace.videos.map((video) => (
-              <div className="video-row" key={video.id}>
-                <div className="video-row-main">
-                  <strong>{getVideoLabel(video)}</strong>
-                  {isSafeHttpUrl(video.url) ? <a href={video.url} target="_blank" rel="noreferrer">
-                    Abrir vídeo
-                  </a> : <span>URL de vídeo non compatible</span>}
-                  <small>
-                    {video.durationSeconds === null
-                      ? 'Duración descoñecida'
-                      : `Duración · ${formatAnalysisClock(video.durationSeconds)}`}
-                  </small>
-                </div>
-                <button
-                  className="participant-remove"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    void onRemoveVideo(video.id)
-                  }}
-                >
-                  Quitar
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state compact-empty-state">
-            <strong>Aínda non hai vídeo.</strong>
-            <p>
-              Podes continuar preparando a análise e engadir o vídeo cando dispoñas da
-              gravación.
-            </p>
-          </div>
-        )}
-
-        <form className="video-add-form" onSubmit={handleAddVideo}>
-          <label className="video-url-field">
-            <span>URL do vídeo</span>
-            <input
-              type="url"
-              value={videoUrl}
-              disabled={busy}
-              maxLength={2048}
-              placeholder="https://…"
-              onChange={(event) => {
-                setVideoUrl(event.target.value)
-              }}
-            />
-          </label>
-
-          <label>
-            <span>Título</span>
-            <input
-              type="text"
-              value={videoTitle}
-              disabled={busy}
-              maxLength={200}
-              placeholder="Cámara principal"
-              onChange={(event) => {
-                setVideoTitle(event.target.value)
-              }}
-            />
-          </label>
-
-          <label>
-            <span>Duración</span>
-            <input
-              type="text"
-              value={videoDuration}
-              disabled={busy}
-              inputMode="decimal"
-              placeholder="72:30"
-              onChange={(event) => {
-                setVideoDuration(event.target.value)
-              }}
-            />
-          </label>
-
-          <button
-            className="button button-secondary"
-            type="submit"
-            disabled={busy || !videoUrl.trim()}
-          >
-            {busy ? 'Gardando…' : 'Engadir vídeo'}
-          </button>
-        </form>
-      </section>
-
-      <section className="state-card sync-card">
-        <div className="section-heading-inline">
-          <div>
-
-            <h2>Relaciona o reloxo do vídeo co reloxo do partido</h2>
-            <p>
-              Indica en que instante do vídeo comeza este período. Se a primeira parte comeza no 03:42 do vídeo: tempo do partido 00:00 → vídeo 03:42.
-              Engade outro punto despois dun corte para manter os reloxos sincronizados.
-            </p>
-          </div>
-          <span className="badge">{workspace.syncPoints.length} puntos</span>
-        </div>
-
-        {workspace.syncPoints.length > 0 ? (
-          <div className="sync-list">
-            {workspace.syncPoints.map((syncPoint) => {
-              const video = getVideoForSyncPoint(workspace, syncPoint)
-
-              return (
-                <div className="sync-row" key={syncPoint.id}>
-                  <div>
-                    <strong>{video ? getVideoLabel(video) : 'Vídeo descoñecido'}</strong>
-                    <small>
-                      vídeo {formatAnalysisClock(syncPoint.videoSecond)} →{' '}
-                      {getPeriodLabel(workspace, syncPoint.periodId)} ·{' '}
-                      {formatAnalysisClock(syncPoint.secondInPeriod)}
-                    </small>
-                  </div>
-                  <button
-                    className="participant-remove"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      void onRemoveSyncPoint(syncPoint.id)
-                    }}
-                  >
-                    Quitar
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        ) : null}
-
-        {workspace.videos.length > 0 ? (
-          <form className="sync-add-form" onSubmit={handleAddSyncPoint}>
-            <label>
-              <span>Vídeo</span>
-              <select
-                value={syncVideoId}
-                disabled={busy}
-                onChange={(event) => {
-                  setSyncVideoId(event.target.value)
-                }}
-              >
-                {workspace.videos.map((video) => (
-                  <option key={video.id} value={video.id}>
-                    {getVideoLabel(video)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              <span>Período</span>
-              <select
-                value={syncPeriodId}
-                disabled={busy}
-                onChange={(event) => {
-                  setSyncPeriodId(event.target.value)
-                }}
-              >
-                {workspace.periods.map((period) => (
-                  <option key={period.id} value={period.id}>
-                    {period.name ?? `Período ${period.number}`}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              <span>Tempo no vídeo</span>
-              <input
-                type="text"
-                value={syncVideoTime}
-                disabled={busy}
-                inputMode="decimal"
-                placeholder="2:05.250"
-                onChange={(event) => {
-                  setSyncVideoTime(event.target.value)
-                }}
-              />
-            </label>
-
-            <label>
-              <span>Tempo no período</span>
-              <input
-                type="text"
-                value={syncPeriodTime}
-                disabled={busy}
-                inputMode="numeric"
-                placeholder="0:00"
-                onChange={(event) => {
-                  setSyncPeriodTime(event.target.value)
-                }}
-              />
-            </label>
-
-            <button
-              className="button button-secondary"
-              type="submit"
-              disabled={
-                busy ||
-                !syncVideoId ||
-                !syncPeriodId ||
-                !syncVideoTime.trim() ||
-                !syncPeriodTime.trim()
-              }
-            >
-              {busy ? 'Gardando…' : 'Engadir punto'}
-            </button>
-          </form>
-        ) : (
-          <div className="empty-state compact-empty-state">
-            <strong>Engade un vídeo para crear puntos de sincronización.</strong>
-          </div>
-        )}
       </section>
 
       </fieldset>

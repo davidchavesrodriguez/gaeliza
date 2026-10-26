@@ -286,7 +286,7 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
         />
       ) : (
         <>
-          <div className="workspace-next-card roster-navigation">
+          <div className="workspace-next-card roster-navigation" id="roster-continue" tabIndex={-1}>
             <div>
 
               <strong>Vídeo e sincronización</strong>
@@ -303,12 +303,16 @@ function AnalysisWorkspaceView({ analysisId }: { analysisId: string }) {
               Continuar
             </button>
           </div>
+          <nav className="roster-jumps" aria-label="Ir á convocatoria dun equipo">
+            {teams.map((team) => <a key={team.id} href={`#roster-${team.id}`}>{team.name} · {participantsByTeam.get(team.id)?.length ?? 0} {participantsByTeam.get(team.id)?.length === 1 ? 'convocado' : 'convocados'}</a>)}
+          </nav>
           <fieldset className="workspace-fields" disabled={busy || loading || requiresReload || workspace.status === 'completed'}>
           <div className="roster-grid">
             {teams.map((team) => (
               <TeamRoster
                 key={team.id}
                 team={team}
+                otherTeam={team.id === workspace.homeTeam.id ? workspace.awayTeam : workspace.homeTeam}
                 draft={temporaryDrafts[team.id] ?? { name: '', number: '' }}
                 onDraftChange={(draft) => setTemporaryDrafts((current) => ({ ...current, [team.id]: draft }))}
                 participants={participantsByTeam.get(team.id) ?? []}
