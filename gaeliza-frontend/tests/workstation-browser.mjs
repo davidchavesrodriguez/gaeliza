@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import test from 'node:test'
 import { startBrowserHarness } from './helpers/browser-harness.mjs'
+import { contrastRatio } from './helpers/contrast.mjs'
 const screenshotDir=process.env.WORKSTATION_SCREENSHOT_DIR
 const types={shot:'Tiro',pass:'Pase',recovery:'Recuperación',turnover:'Perda',duel:'Duelo',dribble:'Regate',block:'Bloqueo',kickout:'Saque de porta',restart:'Reinicio',foul:'Falta',card:'Tarxeta',substitution:'Substitución',goalkeeper_change:'Cambio de porteiro'}
 const team=(id,name)=>({id,name,short_name:null,logo_path:null})
@@ -118,6 +119,33 @@ test('tactical workstation presentation and capture regressions',async(t)=>{
   await page.getByRole('button',{name:'Cambiar a tema escuro'}).click()
   await page.getByRole('button',{name:'Ocultar vídeo'}).click();assert.equal(await page.locator('video').count(),0)
   const full=await measure('shot-no-video-1440');assert.ok(full.capture.width>data.capture.width);await shot('shot-no-video-dark')
+ })
+ await t.test('action groups, selected state and keyboard focus remain legible in both themes',async()=>{
+  await page.setViewportSize({width:1440,height:900});await start()
+  for(const theme of ['dark','light']){
+   if(theme==='light')await page.getByRole('button',{name:'Cambiar a tema claro'}).click()
+   for(const name of ['Principais','Xogo','Reinicios','Disciplina','Cambios']){
+    const group=page.getByRole('group',{name,exact:true});await group.waitFor()
+    const box=await group.boundingBox()
+    for(const button of await group.getByRole('button').all()){
+     const control=await button.boundingBox()
+     assert.ok(control.height>=44&&control.x>=box.x&&control.x+control.width<=box.x+box.width+1,`${name}: targets fit their category`)
+    }
+   }
+   const selected=page.getByRole('button',{name:'Tiro',exact:true})
+   await selected.focus();await page.keyboard.press('Tab')
+   assert.ok(await page.getByRole('button',{name:'Pase',exact:true}).evaluate(e=>e===document.activeElement&&e.matches(':focus-visible')))
+   const colors=await page.evaluate(()=>{
+    const css=getComputedStyle(document.documentElement)
+    return Object.fromEntries(['accent','on-accent','paper','surface','surface-muted','ink','ink-soft','control-line'].map(key=>[key,css.getPropertyValue('--'+key).trim()]))
+   })
+   for(const [ink,paper,min] of [['on-accent','accent',4.5],['ink-soft','paper',4.5],['ink-soft','surface',4.5],['ink','surface-muted',4.5],['accent','surface',3],['control-line','paper',3]]){
+    assert.ok(contrastRatio(colors[ink],colors[paper])>=min,`${theme}: ${ink}/${paper}`)
+   }
+   assert.equal(await selected.getAttribute('aria-pressed'),'true')
+   assert.ok(await selected.evaluate(e=>getComputedStyle(e).textDecorationLine.includes('underline')),'selection has a non-color cue')
+  }
+  await page.getByRole('button',{name:'Cambiar a tema escuro'}).click()
  })
  for(const width of [1440,390])await t.test(`all thirteen actions remain selectable and save their unchanged partial payloads at ${width}`,async()=>{
   await page.setViewportSize({width,height:900});await start()
@@ -236,7 +264,15 @@ test('tactical workstation presentation and capture regressions',async(t)=>{
   await noOverflow();await shot('action-selector-mobile-320')
   if(screenshotDir){await page.getByLabel('Acción',{exact:true}).click();await page.screenshot({path:`${screenshotDir}/action-selector-open-320.png`});await page.keyboard.press('Escape')}
   for(const [width,height]of [[1440,900],[390,844],[320,568]]){
-   await page.setViewportSize({width,height});await page.evaluate(()=>document.documentElement.style.fontSize='200%');await page.getByLabel('Tempo no período',{exact:true}).fill('18:42');await noOverflow();assert.ok(await page.getByLabel('Tempo no período',{exact:true}).evaluate(e=>e.scrollWidth<=e.clientWidth),'event time remains readable at 200%');await measure(`text-200-${width}`);await page.evaluate(()=>document.documentElement.style.fontSize='')
+   await page.setViewportSize({width,height});await page.evaluate(()=>document.documentElement.style.fontSize='200%');await page.getByLabel('Tempo no período',{exact:true}).fill('18:42');await noOverflow();assert.ok(await page.getByLabel('Tempo no período',{exact:true}).evaluate(e=>e.scrollWidth<=e.clientWidth),'event time remains readable at 200%');await measure(`text-200-${width}`)
+   if(width===1440){
+    for(const group of await page.locator('.event-type-group').all()){
+     const box=await group.boundingBox(),legend=await group.locator('legend').boundingBox()
+     assert.ok(legend.x+legend.width<=box.x+box.width+1,'enlarged category stays within its group')
+    }
+    if(screenshotDir)await page.locator('.event-type-controls').screenshot({path:`${screenshotDir}/groups-text-200.png`})
+   }
+   await page.evaluate(()=>document.documentElement.style.fontSize='')
   }
  })
  await t.test('completed keeps full sequence/video without editable event controls',async()=>{

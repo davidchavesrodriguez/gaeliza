@@ -1,7 +1,7 @@
 .analysis-setup { display: grid; gap: 24px; }
 .section-heading-inline { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .section-heading-inline h2 { margin-bottom: 4px; }
-.match-list { display: grid; max-height: 520px; overflow-y: auto; }
+.match-list { display: grid; max-height: 520px; overflow-y: auto; background: var(--surface); }
 .match-card { width: 100%; border: 0; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; border-radius: 0; padding: 16px; text-align: left; color: var(--ink); background: transparent; cursor: pointer; }
 .match-card:hover { background: var(--surface-muted); }
 .match-card-selected { border-left-color: var(--accent); background: var(--accent-soft); }
@@ -16,7 +16,7 @@
 .mode-card span { display: grid; align-content: start; gap: 4px; }
 .mode-card small { line-height: 1.5; }
 .inline-loading, .empty-state { display: flex; align-items: center; justify-content: start; gap: 12px; padding: 16px 0; color: var(--ink-soft); }
-.empty-state { flex-direction: column; align-items: start; border-top: 1px solid var(--line); }
+.empty-state { flex-direction: column; align-items: start; border-left: 4px solid var(--accent); padding: 24px; background: var(--surface); }
 .empty-state p { margin-bottom: 0; }
 .compact-empty-state { font-size: .9rem; }
 .form-error { display: grid; gap: 8px; border-left: 3px solid var(--danger); padding: 12px 16px; color: var(--danger); background: var(--surface); }
@@ -29,11 +29,11 @@
 .self-service-setup { max-width: 1200px; width: 100%; }
 .self-service-setup .page-heading p { margin: 4px 0 0; }
 .setup-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; align-items: start; }
-.setup-team { min-width: 0; }
-.setup-team h2 { font-size: 1.15rem; margin: 0 0 12px; }
+.setup-team { min-width: 0; padding: 20px; background: var(--surface); border-top: 3px solid var(--accent); }
+.setup-team h2 { font-size: .8rem; margin: 0 0 16px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
 .setup-team-selected { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; min-width: 0; }
 .setup-team-selected > div { display: grid; gap: 4px; min-width: 0; }
-.setup-team-selected strong { overflow-wrap: anywhere; }
+.setup-team-selected strong { overflow-wrap: anywhere; font-size: 1.5rem; letter-spacing: -.025em; }
 .setup-team-selected span { color: var(--ink-soft); font-size: .9rem; }
 .self-service-setup label { display: grid; gap: 4px; font-size: .9rem; color: var(--ink-soft); min-width: 0; }
 .setup-team-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; margin-bottom: 12px; }
@@ -49,7 +49,8 @@
 .setup-pagination { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .setup-mode, .setup-existing-matches { border: 0; padding: 0; margin: 0; min-width: 0; }
 .setup-mode legend { margin-bottom: 8px; }
-.self-service-setup .setup-mode label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-right: 24px; }
+.self-service-setup .setup-mode label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin: 0 12px 8px 0; padding: 8px 16px; background: var(--surface); border-bottom: 2px solid transparent; cursor: pointer; }
+.self-service-setup .setup-mode label:has(input:checked) { color: var(--ink); border-color: var(--accent); background: var(--accent-soft); }
 .setup-mode input { min-height: auto; accent-color: var(--accent); }
 .setup-match-fields, .setup-player-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .team-player-setup { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
@@ -60,4 +61,4 @@
 .setup-player-list span { color: var(--ink-soft); }
 .setup-player-form button { justify-self: start; }
 @media (max-width: 800px) { .setup-teams, .setup-rosters { grid-template-columns: 1fr; } }
-@media (max-width: 480px) { .setup-match-fields, .setup-player-form { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .setup-match-fields, .setup-player-form { grid-template-columns: 1fr; } .setup-team { padding: 16px; } }

@@ -1,4 +1,10 @@
 .video-setup-stack { display: grid; gap: 24px; }
+.video-library-card { border-top: 0; padding-top: 8px; }
+.video-library-card h2, .sync-card h2 { border-left: 4px solid var(--accent); padding-left: 12px; }
+.video-setup-stack .sync-card { padding: 24px; background: var(--surface); border: 0; }
+.video-list { margin-top: 16px; }
+.video-library-card .video-row { border-left: 3px solid var(--line); padding-left: 16px; }
+.video-row-main strong { font-size: 1.1rem; }
 .video-orientation-card p, .video-library-card p, .sync-card p { max-width: 820px; margin-bottom: 0; font-size: .9rem; }
 .period-direction-grid, .video-list, .sync-list { display: grid; grid-template-columns: minmax(0, 1fr); }
 .period-direction-row, .video-row, .sync-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); padding: 12px 0; }
@@ -16,17 +22,20 @@
 .preparation-count { font-size: .85rem; color: var(--ink-soft); }
 .video-row-main strong, .sync-row strong { overflow-wrap: anywhere; }
 .sync-clock-inputs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 16px; align-items: center; }
-.sync-clock-inputs fieldset { display: grid; gap: 12px; margin: 0; padding: 0; border: 0; }
+.sync-clock-inputs fieldset { display: grid; gap: 12px; margin: 0; padding: 16px; border: 0; background: var(--paper); }
 .sync-clock-inputs legend { padding: 0; margin-bottom: 8px; font-weight: 600; }
-.sync-clock-inputs input { font-variant-numeric: tabular-nums; }
-.sync-clock-arrow { color: var(--ink-soft); }
+.sync-clock-inputs input { font-family: var(--type-clock); font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+.sync-clock-arrow { color: var(--accent); font-size: 1.5rem; }
 .sync-clock-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); max-width: 36rem; align-items: center; gap: 12px; font-variant-numeric: tabular-nums; }
 .sync-clock-pair > span { display: grid; gap: 2px; }
-.sync-clock-pair strong { font-size: 1.1rem; font-weight: 600; }
+.sync-clock-pair strong { font-family: var(--type-clock); font-size: 1.25rem; font-weight: 600; }
+.sync-clock-pair > span { border-left: 2px solid var(--line); padding-left: 12px; }
 .video-setup-stack .video-orientation-card h2 { font-size: 1.05rem; }
 .video-setup-stack .video-orientation-card p { font-size: .85rem; }
 .sync-add-form > button { justify-self: start; }
 @media (max-width: 640px) {
+  .video-setup-stack .sync-card { padding: 16px; }
+  .sync-clock-inputs fieldset { padding: 12px; }
   .sync-clock-inputs { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .sync-clock-arrow { display: none; }
   .video-row > button, .sync-row > button { align-self: start; }
