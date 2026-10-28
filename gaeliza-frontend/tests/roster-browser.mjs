@@ -125,8 +125,8 @@ test('roster ergonomics with real page and data layer',async(t)=>{
   assert.equal(await visitor.getByLabel('Nome ou etiqueta').inputValue(),'Borrador ao volver')
  })
  await t.test('tablet/mobile stack teams without overflow and preserve keyboard access',async()=>{
-  for(const width of [1024,768,390,320]){
-   await page.setViewportSize({width,height:844});await page.evaluate(()=>scrollTo(0,0))
+  for(const [width,height] of [[1440,900],[1366,768],[1024,768],[768,1024],[430,932],[390,844],[360,800],[320,568]]){
+   await page.setViewportSize({width,height});await page.evaluate(()=>scrollTo(0,0))
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
    assert.equal(await page.locator('.roster-navigation').evaluate(e=>getComputedStyle(e).position),'static')
    if(width<1001)assert.ok((await visitor.boundingBox()).y>(await local.boundingBox()).y)
@@ -149,8 +149,8 @@ test('roster ergonomics with real page and data layer',async(t)=>{
 
  await t.test('long names wrap at narrow sizes without hiding team navigation',async()=>{
   status='draft';participants=[{...player(1),display_name_snapshot:'María Antía Fernández Rodríguez de Santiago de Compostela'}];await go()
-  for(const width of [1440,1024,768,390,320]){
-   await page.setViewportSize({width,height:900})
+  for(const [width,height] of [[1440,900],[1366,768],[1024,768],[768,1024],[430,932],[390,844],[360,800],[320,568]]){
+   await page.setViewportSize({width,height})
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
    await local.getByText('María Antía Fernández Rodríguez de Santiago de Compostela',{exact:true}).waitFor()
   }
@@ -159,6 +159,16 @@ test('roster ergonomics with real page and data layer',async(t)=>{
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
   await shot('roster-long-names-mobile')
   home.name=originalName;await go()
+ })
+ await t.test('enlarged roster numbers do not overlap identities',async()=>{
+  participants=[{...player(1),number:123,position:'Posición histórica longa'}];await go()
+  for(const width of [390,320]){
+   await page.setViewportSize({width,height:844});await page.evaluate(()=>document.documentElement.style.fontSize='30px')
+   const row=local.locator('.participant-row').first()
+   assert.ok(await row.evaluate(e=>{const number=e.querySelector('.participant-number'),identity=e.querySelector('.participant-identity');const range=document.createRange();range.selectNodeContents(number);return range.getBoundingClientRect().right<=identity.getBoundingClientRect().left}),`number must not overlap name at ${width}`)
+   await shot(`roster-text-200-${width}`)
+   await page.evaluate(()=>document.documentElement.style.fontSize='')
+  }
  })
  await t.test('video sources retain optional duration, URL validation, sort order and failed drafts',async()=>{
   await page.getByRole('button',{name:'Continuar',exact:true}).click()
@@ -209,11 +219,15 @@ test('roster ergonomics with real page and data layer',async(t)=>{
   assert.equal(points.length,2);assert.equal(points[1].second_in_period,60)
   await page.getByLabel('Dirección do período 1',{exact:true}).selectOption('left');await saved();assert.equal(direction,'left')
   await page.getByRole('button',{name:'Quitar punto de Cámara principal en 5:00',exact:true}).click();await saved();assert.equal(points.length,1)
-  for(const width of [1440,1024,768,390,320]){
-   await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+  for(const [width,height] of [[1440,900],[1366,768],[1024,768],[768,1024],[430,932],[390,844],[360,800],[320,568]]){
+   await page.setViewportSize({width,height});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
   }
   for(const width of [1440,390,320]){
    await page.setViewportSize({width,height:900});await page.evaluate(()=>document.documentElement.style.fontSize='200%')
+   await videoClock.getByLabel('Tempo no vídeo',{exact:true}).fill('3:42.25')
+   assert.ok(await videoClock.getByLabel('Tempo no vídeo',{exact:true}).evaluate(e=>e.scrollWidth<=e.clientWidth),`fractional clock fully readable at ${width}`)
+   for(const clock of await page.locator('.sync-clock-pair strong').all())assert.ok(await clock.evaluate(e=>e.getBoundingClientRect().height<=parseFloat(getComputedStyle(e).lineHeight)+1),'saved clock stays on one line')
+   await shot(`sync-text-200-${width}`)
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`200% text at ${width}: ${await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth).map(e=>[e.tagName,e.className,e.getBoundingClientRect().width]).slice(-15))}`)
    await page.evaluate(()=>document.documentElement.style.fontSize='')
   }

@@ -1,7 +1,7 @@
 .video-setup-stack { display: grid; gap: 24px; }
 .video-library-card { border-top: 0; padding-top: 8px; }
 .video-library-card h2, .sync-card h2 { border-left: 4px solid var(--accent); padding-left: 12px; }
-.video-setup-stack .sync-card { padding: 24px; background: var(--surface); border: 0; }
+.video-setup-stack .sync-card { container-type: inline-size; padding: 24px; background: var(--surface); border: 0; }
 .video-list { margin-top: 16px; }
 .video-library-card .video-row { border-left: 3px solid var(--line); padding-left: 16px; }
 .video-row-main strong { font-size: 1.1rem; }
@@ -36,7 +36,14 @@
 @media (max-width: 640px) {
   .video-setup-stack .sync-card { padding: 16px; }
   .sync-clock-inputs fieldset { padding: 12px; }
+  .sync-clock-inputs input { font-size: 1rem; }
   .sync-clock-inputs { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .sync-clock-arrow { display: none; }
   .video-row > button, .sync-row > button { align-self: start; }
+}
+
+/* Saved clocks must remain whole even when enlarged labels need more room. */
+@container (max-width: 24rem) {
+  .sync-clock-pair { grid-template-columns: minmax(0, 1fr); }
+  .sync-clock-pair > [aria-hidden] { display: none; }
 }

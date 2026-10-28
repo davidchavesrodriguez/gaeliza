@@ -504,14 +504,15 @@ test('reentry and landing: real list states, responsive reading and keyboard acc
     await screenshot('dashboard-mixed-desktop-dark')
     await focusWithKeyboard(list().first().getByRole('link'))
   })
-  await t.test('dashboard wraps at five widths in both themes, including doubled text',async()=>{
+  await t.test('dashboard wraps at eight widths in both themes, including doubled text',async()=>{
     for(const theme of ['dark','light']){
       await setTheme(theme)
       await contrast()
-      for(const width of [1440,1024,768,390,320]){
-        await page.setViewportSize({width,height:900});await noOverflow(`dashboard ${theme} ${width}`)
+      for(const [width,height] of [[1440,900],[1366,768],[1024,768],[768,1024],[430,932],[390,844],[360,800],[320,568]]){
+        await page.setViewportSize({width,height});await noOverflow(`dashboard ${theme} ${width}`)
         await page.evaluate(()=>document.documentElement.style.fontSize='30px')
         await noOverflow(`dashboard ${theme} ${width} text 200%`)
+        if(theme==='dark'&&width===320)await screenshot('dashboard-text-200-320')
         await focusWithKeyboard(list().first().getByRole('link'))
         await page.evaluate(()=>document.documentElement.style.fontSize='')
         if(theme==='dark'&&width===390)await screenshot('dashboard-mixed-mobile-dark')
@@ -569,11 +570,12 @@ test('reentry and landing: real list states, responsive reading and keyboard acc
     for(const theme of ['dark','light']){
       await setTheme(theme)
       await contrast()
-      for(const width of [1440,1024,768,390,320]){
-        await page.setViewportSize({width,height:900});await noOverflow(`landing ${theme} ${width}`)
+      for(const [width,height] of [[1440,900],[1366,768],[1024,768],[768,1024],[430,932],[390,844],[360,800],[320,568]]){
+        await page.setViewportSize({width,height});await noOverflow(`landing ${theme} ${width}`)
         if(width===1440||width===390)await screenshot(`landing-${width===1440?'desktop':'mobile'}-${theme}`)
         await page.evaluate(()=>document.documentElement.style.fontSize='30px')
         await noOverflow(`landing ${theme} ${width} text 200%`)
+        if(theme==='dark'&&width===320)await screenshot('landing-text-200-320')
         await focusWithKeyboard(secondary);await focusWithKeyboard(primary)
         await page.evaluate(()=>document.documentElement.style.fontSize='')
       }

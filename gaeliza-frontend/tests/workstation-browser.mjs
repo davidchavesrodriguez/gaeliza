@@ -137,9 +137,9 @@ test('tactical workstation presentation and capture regressions',async(t)=>{
    assert.ok(await page.getByRole('button',{name:'Pase',exact:true}).evaluate(e=>e===document.activeElement&&e.matches(':focus-visible')))
    const colors=await page.evaluate(()=>{
     const css=getComputedStyle(document.documentElement)
-    return Object.fromEntries(['accent','on-accent','paper','surface','surface-muted','ink','ink-soft','control-line'].map(key=>[key,css.getPropertyValue('--'+key).trim()]))
+    return Object.fromEntries(['accent','on-accent','paper','surface','surface-muted','ink','ink-soft','control-line','warning','danger','info','pitch','pitch-line','pitch-marker'].map(key=>[key,css.getPropertyValue('--'+key).trim()]))
    })
-   for(const [ink,paper,min] of [['on-accent','accent',4.5],['ink-soft','paper',4.5],['ink-soft','surface',4.5],['ink','surface-muted',4.5],['accent','surface',3],['control-line','paper',3]]){
+   for(const [ink,paper,min] of [['on-accent','accent',4.5],['ink-soft','paper',4.5],['ink-soft','surface',4.5],['ink','surface-muted',4.5],['accent','surface',3],['control-line','paper',3],['warning','surface',4.5],['danger','surface',4.5],['info','surface',4.5],['pitch-line','pitch',3],['pitch-marker','pitch',3]]){
     assert.ok(contrastRatio(colors[ink],colors[paper])>=min,`${theme}: ${ink}/${paper}`)
    }
    assert.equal(await selected.getAttribute('aria-pressed'),'true')
@@ -251,7 +251,7 @@ test('tactical workstation presentation and capture regressions',async(t)=>{
   people.forEach((p,i)=>{p.display_name_snapshot=`María Antía Fernández Rodríguez ${i+1}`})
   roles.set('seq11',[{participant_id:'home1',role:'shooter'}])
   await start();await page.getByLabel(/^Tirador/).selectOption('home1');await noOverflow();await shot('long-names-1366')
-  for(const [width,height,name]of [[1024,900,'tablet-1024'],[768,1024,'tablet-768'],[390,844,'shot-mobile-390'],[320,568,'long-names-mobile-320']]){
+  for(const [width,height,name]of [[1024,768,'tablet-1024'],[768,1024,'tablet-768'],[430,932,'mobile-430'],[360,800,'mobile-360'],[390,844,'shot-mobile-390'],[320,568,'long-names-mobile-320']]){
    await page.setViewportSize({width,height});await noOverflow();await measure(name);await shot(name)
   }
   home.name=names[0];away.name=names[1];people.forEach((p,i)=>{p.display_name_snapshot=names[i+2]})
@@ -265,6 +265,10 @@ test('tactical workstation presentation and capture regressions',async(t)=>{
   if(screenshotDir){await page.getByLabel('Acción',{exact:true}).click();await page.screenshot({path:`${screenshotDir}/action-selector-open-320.png`});await page.keyboard.press('Escape')}
   for(const [width,height]of [[1440,900],[390,844],[320,568]]){
    await page.setViewportSize({width,height});await page.evaluate(()=>document.documentElement.style.fontSize='200%');await page.getByLabel('Tempo no período',{exact:true}).fill('18:42');await noOverflow();assert.ok(await page.getByLabel('Tempo no período',{exact:true}).evaluate(e=>e.scrollWidth<=e.clientWidth),'event time remains readable at 200%');await measure(`text-200-${width}`)
+   for(const row of await page.locator('.timeline-event').all()){
+    assert.ok(await row.evaluate(e=>{const range=document.createRange();range.selectNodeContents(e.querySelector('.timeline-event-time strong'));return range.getBoundingClientRect().right<=e.querySelector('.timeline-event-main').getBoundingClientRect().left}),`timeline time does not overlap summary at ${width}`)
+   }
+   await shot(`tagging-text-200-${width}`)
    if(width===1440){
     for(const group of await page.locator('.event-type-group').all()){
      const box=await group.boundingBox(),legend=await group.locator('legend').boundingBox()

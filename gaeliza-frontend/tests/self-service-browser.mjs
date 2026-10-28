@@ -202,10 +202,11 @@ test('self-service new analysis from an empty guest account',async(t)=>{
   assert.match(await choose(home).textContent(),/Equipo oficial · Oficial/);assert.match(await choose(home).textContent(),/Meu equipo · Persoal/)
   await choose(home).focus();assert.equal(await choose(home).evaluate(e=>e===document.activeElement),true)
   await home.getByRole('button',{name:'Pechar selección'}).click()
-  for(const width of [1440,1024,768,390,320]){
-   await page.setViewportSize({width,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+  for(const [width,height] of [[1440,900],[1366,768],[1024,768],[768,1024],[430,932],[390,844],[360,800],[320,568]]){
+   await page.setViewportSize({width,height});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
    await page.evaluate(()=>document.documentElement.style.fontSize='30px')
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`setup text 200% at ${width}`)
+   if(width===320)await snap('setup-text-200-320')
    await page.evaluate(()=>document.documentElement.style.fontSize='')
   }
   await page.setViewportSize({width:390,height:844})
