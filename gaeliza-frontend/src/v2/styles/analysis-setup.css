@@ -28,12 +28,12 @@
 /* Focused personal match preparation, sharing existing control tokens. */
 .self-service-setup { max-width: 1200px; width: 100%; }
 .self-service-setup .page-heading p { margin: 4px 0 0; }
-.setup-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; align-items: start; }
+.setup-teams { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); gap: 32px; align-items: start; background: var(--surface); border-radius: 10px; padding: 32px; }
 .setup-team { min-width: 0; }
-.setup-team h2 { font-size: 1.15rem; margin: 0 0 12px; }
-.setup-team-selected { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; min-width: 0; }
+.setup-team h2 { font-size: .85rem; color: var(--ink-soft); font-weight: 500; margin: 0 0 16px; }
+.setup-team-selected { display: flex; flex-direction: column; align-items: start; gap: 16px; min-width: 0; }
 .setup-team-selected > div { display: grid; gap: 4px; min-width: 0; }
-.setup-team-selected strong { overflow-wrap: anywhere; }
+.setup-team-selected strong { overflow-wrap: anywhere; font-size: 1.8rem; letter-spacing: -.04em; }
 .setup-team-selected span { color: var(--ink-soft); font-size: .9rem; }
 .self-service-setup label { display: grid; gap: 4px; font-size: .9rem; color: var(--ink-soft); min-width: 0; }
 .setup-team-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; margin-bottom: 12px; }
@@ -51,7 +51,7 @@
 .setup-mode legend { margin-bottom: 8px; }
 .self-service-setup .setup-mode label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-right: 24px; }
 .setup-mode input { min-height: auto; accent-color: var(--accent); }
-.setup-match-fields, .setup-player-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.setup-match-fields, .setup-player-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
 .team-player-setup { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
 .team-player-setup h3 { margin: 0 0 8px; }
 .setup-player-list { list-style: none; padding: 0; margin: 0; }
@@ -61,3 +61,16 @@
 .setup-player-form button { justify-self: start; }
 @media (max-width: 800px) { .setup-teams, .setup-rosters { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .setup-match-fields, .setup-player-form { grid-template-columns: 1fr; } }
+
+.setup-match-versus { align-self: center; color: var(--ink-soft); font-size: .8rem; }
+.self-service-setup { margin-inline: auto; max-width: 1080px; }
+.setup-match-fields { max-width: 720px; margin-top: 12px; }
+.setup-optional-rosters { padding-top: 24px; }
+.setup-team-create > .form-actions { background: transparent; flex-wrap: wrap; }
+.setup-team-create .button { font-size: .85rem; }
+.setup-mode label { padding: 8px 12px; border-radius: 6px; }
+.setup-mode label:has(input:checked) { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
+.match-card { border-bottom: 0; }
+.match-card-selected .match-card-teams { font-weight: 700; }
+@media (max-width: 800px) { .setup-teams { grid-template-columns: minmax(0,1fr); gap: 20px; padding: 20px; } .setup-match-versus { justify-self: center; } }
+@media (max-width: 480px) { .setup-team-search { grid-template-columns: minmax(0,1fr); } }

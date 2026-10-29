@@ -61,6 +61,7 @@ export function CreateAnalysisPage() {
     </section> : <div className="setup-teams">
       <SetupTeamSelector label="Equipo local" selected={home} onSelect={setHome} busy={locked} onBusy={setBusy}
         revision={catalogRevision} onCreated={() => setCatalogRevision((v) => v + 1)} />
+      <span className="setup-match-versus" aria-hidden="true">vs</span>
       <SetupTeamSelector label="Equipo visitante" selected={away} onSelect={setAway} busy={locked} onBusy={setBusy}
         revision={catalogRevision} onCreated={() => setCatalogRevision((v) => v + 1)} />
     </div>}
