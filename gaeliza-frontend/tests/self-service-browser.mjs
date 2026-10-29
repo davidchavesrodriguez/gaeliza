@@ -187,6 +187,7 @@ test('self-service new analysis from an empty guest account',async(t)=>{
   teams.push({id:'official',name:'Equipo oficial',short_name:null,scope:'official',owner_user_id:null})
   matches.push({id:'official-match',scope:'official',status:'scheduled',home_team_id:'official',away_team_id:'team1',scheduled_at:null,round_label:null,round_number:null})
   await start();await page.locator('.match-card').filter({hasText:'Equipo oficial'}).click()
+  await snap('existing-match-desktop')
   await page.getByLabel('En directo',{exact:true}).check();await page.getByRole('button',{name:'Crear análise',exact:true}).click();await page.waitForURL('**/analyses/analysis3?step=roster')
   assert.equal(writes.at(-1).kind,'existing');assert.equal(writes.at(-1).input.p_match_id,'official-match')
   await start();await page.locator('.match-card').filter({hasText:'Amigábel'}).click();await page.getByRole('button',{name:'Crear análise',exact:true}).click();await page.waitForURL('**/analyses/analysis4?step=roster')
@@ -201,7 +202,14 @@ test('self-service new analysis from an empty guest account',async(t)=>{
   assert.match(await choose(home).textContent(),/Equipo oficial · Oficial/);assert.match(await choose(home).textContent(),/Meu equipo · Persoal/)
   await choose(home).focus();assert.equal(await choose(home).evaluate(e=>e===document.activeElement),true)
   await home.getByRole('button',{name:'Pechar selección'}).click()
-  for(const width of [800,390]){await page.setViewportSize({width,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))}
+  for(const [width,height] of [[1440,900],[1366,768],[1280,800],[1024,768],[768,1024],[430,932],[390,844],[360,800],[320,568]]){
+   await page.setViewportSize({width,height});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
+   await page.evaluate(()=>document.documentElement.style.fontSize='30px')
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`setup text 200% at ${width}`)
+   if(width===320)await snap('setup-text-200-320')
+   await page.evaluate(()=>document.documentElement.style.fontSize='')
+  }
+  await page.setViewportSize({width:390,height:844})
   await snap('mobile')
   await page.getByRole('button',{name:'Cambiar a tema claro',exact:true}).click()
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))

@@ -91,10 +91,11 @@ export function QuickEventForm({ workspace, captureDisabled, busy, onSave, initi
     setForm(next)
   }
   const hasPitchColumn = !['card', 'substitution', 'goalkeeper_change'].includes(capture.eventType)
-  return <form className="state-card tagging-capture-card" onSubmit={handleSubmit}>
+  return <form className={`state-card tagging-capture-card${initialEvent ? ' tagging-capture-editing' : ''}`} onSubmit={handleSubmit}>
     <div className="capture-temporal-toolbar"><EventTimeControls workspace={workspace} form={form} disabled={captureDisabled} onChange={changeCommon} /></div>
     {!initialEvent ? <EventTypeControls active={capture.eventType} disabled={captureDisabled}
       onSelect={(type) => { if (type !== capture.eventType) updateCapture(defaultCapture(type)) }} /> : null}
+    <div className="capture-editor">
     <div className="active-event-heading"><h3 ref={heading} tabIndex={initialEvent ? -1 : undefined}>{initialEvent ? `Modificar ${quickEventLabels[capture.eventType].toLowerCase()}` : quickEventLabels[capture.eventType]}</h3>
       <p className="form-hint capture-save-hint">Confirma o evento para gardalo.</p>
       {initialEvent ? <p className="form-hint">Tipo: {quickEventLabels[capture.eventType]}. Para outro tipo físico, elimina e crea un evento novo.</p> : null}
@@ -138,6 +139,7 @@ export function QuickEventForm({ workspace, captureDisabled, busy, onSave, initi
     </button>
     {onCancel ? <button className="button button-secondary" type="button" disabled={busy} onClick={onCancel}>Cancelar edición</button> : null}
     {videoToggle}
+    </div>
     </div>
   </form>
 }

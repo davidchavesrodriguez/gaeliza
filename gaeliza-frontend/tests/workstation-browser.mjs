@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import test from 'node:test'
 import { startBrowserHarness } from './helpers/browser-harness.mjs'
+import { contrastRatio } from './helpers/contrast.mjs'
 const screenshotDir=process.env.WORKSTATION_SCREENSHOT_DIR
 const types={shot:'Tiro',pass:'Pase',recovery:'Recuperación',turnover:'Perda',duel:'Duelo',dribble:'Regate',block:'Bloqueo',kickout:'Saque de porta',restart:'Reinicio',foul:'Falta',card:'Tarxeta',substitution:'Substitución',goalkeeper_change:'Cambio de porteiro'}
 const team=(id,name)=>({id,name,short_name:null,logo_path:null})
@@ -119,6 +120,36 @@ test('tactical workstation presentation and capture regressions',async(t)=>{
   await page.getByRole('button',{name:'Ocultar vídeo'}).click();assert.equal(await page.locator('video').count(),0)
   const full=await measure('shot-no-video-1440');assert.ok(full.capture.width>data.capture.width);await shot('shot-no-video-dark')
  })
+ await t.test('action groups, selected state and keyboard focus remain legible in both themes',async()=>{
+  await page.setViewportSize({width:1440,height:900});await start()
+  for(const theme of ['dark','light']){
+   if(theme==='light')await page.getByRole('button',{name:'Cambiar a tema claro'}).click()
+   for(const name of ['Principais','Xogo','Reinicios','Disciplina','Cambios']){
+    const group=page.getByRole('group',{name,exact:true});await group.waitFor()
+    const box=await group.boundingBox()
+    for(const button of await group.getByRole('button').all()){
+     const control=await button.boundingBox()
+     assert.ok(control.height>=44&&control.x>=box.x&&control.x+control.width<=box.x+box.width+1,`${name}: targets fit their category`)
+    }
+   }
+   const selected=page.getByRole('button',{name:'Tiro',exact:true})
+   await selected.focus();await page.keyboard.press('Tab')
+   assert.ok(await page.getByRole('button',{name:'Pase',exact:true}).evaluate(e=>e===document.activeElement&&e.matches(':focus-visible')))
+   const colors=await page.evaluate(()=>{
+    const css=getComputedStyle(document.documentElement)
+    return Object.fromEntries(['accent','on-accent','paper','surface','surface-muted','ink','ink-soft','control-line','warning','danger','info','pitch','pitch-line','pitch-marker'].map(key=>[key,css.getPropertyValue('--'+key).trim()]))
+   })
+   for(const [ink,paper,min] of [['on-accent','accent',4.5],['ink-soft','paper',4.5],['ink-soft','surface',4.5],['ink','surface-muted',4.5],['accent','surface',3],['control-line','paper',3],['warning','surface',4.5],['danger','surface',4.5],['info','surface',4.5],['pitch-line','pitch',3],['pitch-marker','pitch',3]]){
+    assert.ok(contrastRatio(colors[ink],colors[paper])>=min,`${theme}: ${ink}/${paper}`)
+   }
+   assert.equal(await selected.getAttribute('aria-pressed'),'true')
+   assert.ok(await selected.evaluate(e=>{
+    const active=getComputedStyle(e),inactive=getComputedStyle(e.parentElement.querySelector('button[aria-pressed="false"]'))
+    return active.textDecorationLine!==inactive.textDecorationLine||Number(active.fontWeight)>Number(inactive.fontWeight)||['Top','Right','Bottom','Left'].some(side=>active['border'+side+'Width']!==inactive['border'+side+'Width'])
+   }),'selection has a non-color cue distinct from inactive commands')
+  }
+  await page.getByRole('button',{name:'Cambiar a tema escuro'}).click()
+ })
  for(const width of [1440,390])await t.test(`all thirteen actions remain selectable and save their unchanged partial payloads at ${width}`,async()=>{
   await page.setViewportSize({width,height:900});await start()
   if(width<768){assert.equal(await page.getByLabel('Acción',{exact:true}).locator('option').count(),13);assert.equal(await page.getByRole('group',{name:'Tipo de evento',exact:true}).count(),0)}
@@ -198,7 +229,22 @@ test('tactical workstation presentation and capture regressions',async(t)=>{
   events=Array.from({length:12},(_,i)=>fact(`seq${i}`,'shot',i*2));await start();assert.equal(await page.locator('.timeline-event').count(),8)
   await page.getByRole('button',{name:'Mostrar 4 anteriores',exact:true}).click();assert.equal(await page.locator('.timeline-event').count(),12)
   const row=page.locator('.timeline-event').first();await row.getByRole('button',{name:'Editar',exact:true}).click();await page.getByRole('button',{name:'Gardar cambios'}).waitFor()
-  assert.equal(await row.getByText('En edición',{exact:true}).count(),1);await shot('editing-event')
+  assert.equal(await row.getByText('En edición',{exact:true}).count(),1)
+  for(const [width,height] of [[1440,900],[320,568]]){
+   await page.setViewportSize({width,height})
+   const geometry=await page.locator('.tagging-capture-card').evaluate(capture=>{
+    const style=getComputedStyle(capture),editor=capture.querySelector('.capture-editor').getBoundingClientRect()
+    const fields=capture.querySelector('.capture-fields').getBoundingClientRect(),pitch=capture.querySelector('.event-coordinate-sections').getBoundingClientRect()
+    return {available:capture.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),editorWidth:editor.width,
+     separate:fields.right<=pitch.left+1||pitch.right<=fields.left+1||fields.bottom<=pitch.top+1||pitch.bottom<=fields.top+1,
+     contained:fields.left>=editor.left-1&&fields.right<=editor.right+1&&pitch.left>=editor.left-1&&pitch.right<=editor.right+1}
+   })
+   assert.ok(Math.abs(geometry.editorWidth-geometry.available)<=2,`editing uses capture width without an empty command column at ${width}`)
+   assert.ok(geometry.separate&&geometry.contained,`editing fields and pitch fit without overlap at ${width}`)
+   await noOverflow()
+   if(width===320)await shot('editing-event-mobile-320')
+  }
+  await page.setViewportSize({width:1440,height:900});await shot('editing-event')
   await page.getByRole('button',{name:'Gardar cambios'}).click();await idle();assert.equal(await row.getByText('En edición',{exact:true}).count(),0)
   assert.equal(await row.getByRole('button',{name:'Editar',exact:true}).evaluate(e=>e===document.activeElement),true)
  })
@@ -223,7 +269,7 @@ test('tactical workstation presentation and capture regressions',async(t)=>{
   people.forEach((p,i)=>{p.display_name_snapshot=`María Antía Fernández Rodríguez ${i+1}`})
   roles.set('seq11',[{participant_id:'home1',role:'shooter'}])
   await start();await page.getByLabel(/^Tirador/).selectOption('home1');await noOverflow();await shot('long-names-1366')
-  for(const [width,height,name]of [[1024,900,'tablet-1024'],[768,1024,'tablet-768'],[390,844,'shot-mobile-390'],[320,568,'long-names-mobile-320']]){
+  for(const [width,height,name]of [[1280,800,'desktop-1280'],[1024,768,'tablet-1024'],[768,1024,'tablet-768'],[430,932,'mobile-430'],[360,800,'mobile-360'],[390,844,'shot-mobile-390'],[320,568,'long-names-mobile-320']]){
    await page.setViewportSize({width,height});await noOverflow();await measure(name);await shot(name)
   }
   home.name=names[0];away.name=names[1];people.forEach((p,i)=>{p.display_name_snapshot=names[i+2]})
@@ -236,7 +282,19 @@ test('tactical workstation presentation and capture regressions',async(t)=>{
   await noOverflow();await shot('action-selector-mobile-320')
   if(screenshotDir){await page.getByLabel('Acción',{exact:true}).click();await page.screenshot({path:`${screenshotDir}/action-selector-open-320.png`});await page.keyboard.press('Escape')}
   for(const [width,height]of [[1440,900],[390,844],[320,568]]){
-   await page.setViewportSize({width,height});await page.evaluate(()=>document.documentElement.style.fontSize='200%');await page.getByLabel('Tempo no período',{exact:true}).fill('18:42');await noOverflow();assert.ok(await page.getByLabel('Tempo no período',{exact:true}).evaluate(e=>e.scrollWidth<=e.clientWidth),'event time remains readable at 200%');await measure(`text-200-${width}`);await page.evaluate(()=>document.documentElement.style.fontSize='')
+   await page.setViewportSize({width,height});await page.evaluate(()=>document.documentElement.style.fontSize='200%');await page.getByLabel('Tempo no período',{exact:true}).fill('18:42');await noOverflow();assert.ok(await page.getByLabel('Tempo no período',{exact:true}).evaluate(e=>e.scrollWidth<=e.clientWidth),'event time remains readable at 200%');await measure(`text-200-${width}`)
+   for(const row of await page.locator('.timeline-event').all()){
+    assert.ok(await row.evaluate(e=>{const range=document.createRange();range.selectNodeContents(e.querySelector('.timeline-event-time strong'));const time=range.getBoundingClientRect(),summary=e.querySelector('.timeline-event-main').getBoundingClientRect();return time.right<=summary.left+1||time.bottom<=summary.top+1}),`timeline time does not overlap summary at ${width}`)
+   }
+   await shot(`tagging-text-200-${width}`)
+   if(width===1440){
+    for(const group of await page.locator('.event-type-group').all()){
+     const box=await group.boundingBox(),legend=await group.locator('legend').boundingBox()
+     assert.ok(legend.x+legend.width<=box.x+box.width+1,'enlarged category stays within its group')
+    }
+    if(screenshotDir)await page.locator('.event-type-controls').screenshot({path:`${screenshotDir}/groups-text-200.png`})
+   }
+   await page.evaluate(()=>document.documentElement.style.fontSize='')
   }
  })
  await t.test('completed keeps full sequence/video without editable event controls',async()=>{

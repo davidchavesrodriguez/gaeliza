@@ -11,11 +11,12 @@ function AnalysisList({ title, items }: { title: string; items: AnalysisListItem
     <h2>{title} <span className="list-count">{items.length}</span></h2>
     {items.length === 0 ? <p className="list-empty">Non hai análises nesta sección.</p> : <ul className="analysis-list">
       {items.map((item) => <li className="analysis-list-row" key={item.id}>
-        <div className="analysis-list-match">
-          <h3>{item.homeTeam} <span aria-hidden="true">—</span> {item.awayTeam}</h3>
-          <span>Partido: {item.scheduledAt && Number.isFinite(Date.parse(item.scheduledAt))
+          <span className="analysis-list-date">Partido: {item.scheduledAt && Number.isFinite(Date.parse(item.scheduledAt))
             ? <time dateTime={item.scheduledAt}>{formatMatchDate(item.scheduledAt)}</time>
             : formatMatchDate(item.scheduledAt)}</span>
+        <div className="analysis-list-match">
+          <h3>{item.homeTeam} <span aria-hidden="true">—</span> {item.awayTeam}</h3>
+
           {item.title ? <span>{item.title}</span> : null}
           <small>{item.eventCount} {item.eventCount === 1 ? 'evento' : 'eventos'} · {item.videoCount > 0 ? 'Vídeo configurado' : 'Sen vídeo'}</small>
         </div>

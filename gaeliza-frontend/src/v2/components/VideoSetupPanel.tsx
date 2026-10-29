@@ -343,37 +343,6 @@ export function VideoSetupPanel({
           <span className="preparation-count">{workspace.syncPoints.length} {workspace.syncPoints.length === 1 ? 'punto' : 'puntos'}</span>
         </div>
 
-        {workspace.syncPoints.length > 0 ? (
-          <div className="sync-list">
-            {workspace.syncPoints.map((syncPoint) => {
-              const video = getVideoForSyncPoint(workspace, syncPoint)
-
-              return (
-                <div className="sync-row" key={syncPoint.id}>
-                  <div>
-                    <strong>{video ? getVideoLabel(video) : 'Vídeo descoñecido'}</strong>
-                    <div className="sync-clock-pair">
-                      <span><small>Tempo no vídeo</small><strong>{formatAnalysisClock(syncPoint.videoSecond)}</strong></span>
-                      <span aria-hidden="true">→</span>
-                      <span><small>{getPeriodLabel(workspace, syncPoint.periodId)} · Tempo no período</small><strong>{formatAnalysisClock(syncPoint.secondInPeriod)}</strong></span>
-                    </div>
-                  </div>
-                  <button
-                    className="participant-remove"
-                    aria-label={`Quitar punto de ${video ? getVideoLabel(video) : 'Vídeo descoñecido'} en ${formatAnalysisClock(syncPoint.videoSecond)}`}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      void onRemoveSyncPoint(syncPoint.id)
-                    }}
-                  >
-                    Quitar
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        ) : <p className="form-hint">Aínda non hai puntos de sincronización.</p>}
 
         {workspace.videos.length > 0 ? (
           <form className="sync-add-form" onSubmit={handleAddSyncPoint}>
@@ -465,6 +434,39 @@ export function VideoSetupPanel({
             <strong>Engade un vídeo para crear puntos de sincronización.</strong>
           </div>
         )}
+
+        {workspace.syncPoints.length > 0 ? (
+          <div className="sync-list">
+            {workspace.syncPoints.map((syncPoint) => {
+              const video = getVideoForSyncPoint(workspace, syncPoint)
+
+              return (
+                <div className="sync-row" key={syncPoint.id}>
+                  <div>
+                    <strong>{video ? getVideoLabel(video) : 'Vídeo descoñecido'}</strong>
+                    <div className="sync-clock-pair">
+                      <span><small>Tempo no vídeo</small><strong>{formatAnalysisClock(syncPoint.videoSecond)}</strong></span>
+                      <span aria-hidden="true">→</span>
+                      <span><small>{getPeriodLabel(workspace, syncPoint.periodId)} · Tempo no período</small><strong>{formatAnalysisClock(syncPoint.secondInPeriod)}</strong></span>
+                    </div>
+                  </div>
+                  <button
+                    className="participant-remove"
+                    aria-label={`Quitar punto de ${video ? getVideoLabel(video) : 'Vídeo descoñecido'} en ${formatAnalysisClock(syncPoint.videoSecond)}`}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      void onRemoveSyncPoint(syncPoint.id)
+                    }}
+                  >
+                    Quitar
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        ) : <p className="form-hint">Aínda non hai puntos de sincronización.</p>}
+
       </section>
 
       <section className="state-card video-orientation-card">
